@@ -10,6 +10,6 @@ Much, much thanks to https://github.com/KIrill-ka for the code to decode the ima
 
 <H2>Setup process</H2>
 
-The following image shows the basic process for setting up both the Phase Noise and Spur Utilities.
+The following image shows the basic process for setting up both the Phase Noise and Spur Utilities once you have used DLPBits to copy them to the Mass Memory Module.
 
 ![SetupImage](Image/PHSetup.png?raw=true)
