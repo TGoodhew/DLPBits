@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Net.WebRequestMethods;
 
 namespace DLPBits
 {
@@ -46,7 +47,7 @@ namespace DLPBits
             gpibSession.TerminationCharacterEnabled = true;
             gpibSession.Clear(); // Clear the session
 
-            string pathToFile = @"SRAM_85620A.bin";
+            string pathToFile = @"SRAM_85620A.bin"; // From the KO4BB image here - https://www.ko4bb.com/getsimple/index.php?id=manuals&dir=HP_Agilent_Keysight/HP_85620A
             byte[] fileBytes;
 
             try
