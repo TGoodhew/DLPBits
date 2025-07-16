@@ -7,3 +7,9 @@ You can get the image from https://www.ko4bb.com/getsimple/index.php?id=manuals&
 **<ins>Drop the .BIN file into the debug folder or the folder that the .EXE lives in</ins>**
 
 Much, much thanks to https://github.com/KIrill-ka for the code to decode the image address and data bits.
+
+<H2>Setup process</H2>
+
+The following image shows the basic process for setting up both the Phase Noise and Spur Utilities.
+
+![SetupImage](Image/PHSetup.png?raw=true)
