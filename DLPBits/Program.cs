@@ -75,8 +75,8 @@ namespace DLPBits
                 }
 
                 // Define the start and end byte sequences
-                byte[] startSequence = new byte[] { 0x10, 0x80 }; // Example start bytes
-                byte[] endSequence = new byte[] { 0x3b, 0xff };   // Example end bytes
+                byte[] startSequence = new byte[] { 0x10, 0x80 }; // 0x10, 0x80 seem to be the start bytes for a DLP
+                byte[] endSequence = new byte[] { 0x3b, 0xff };   // 0x3b, 0xff seem to be the end bytes for a DLP
 
                 List<byte[]> extractedParts = ExtractPartsBetweenSequences(translatedBytes.ToArray(), startSequence, endSequence);
 
