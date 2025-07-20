@@ -1,4 +1,4 @@
-﻿using NationalInstruments.Visa;
+﻿using Keysight.Visa;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,7 +11,7 @@ namespace DLPBits
     internal class Program
     {
         public static GpibSession gpibSession;
-        public static NationalInstruments.Visa.ResourceManager resManager;
+        public static Keysight.Visa.ResourceManager resManager;
         public static int gpibIntAddress = 18;
 
         // This function translates the address based on the specific algorithm provided.
@@ -38,11 +38,11 @@ namespace DLPBits
         static void Main(string[] args)
         {
             // Setup the GPIB connection via the ResourceManager
-            resManager = new NationalInstruments.Visa.ResourceManager();
+            resManager = new Keysight.Visa.ResourceManager();
 
             // Create a GPIB session for the specified address
             gpibSession = (GpibSession)resManager.Open(string.Format("GPIB0::{0}::INSTR", gpibIntAddress));
-            gpibSession.TimeoutMilliseconds = 2000; // Set the timeout to be 2s
+            gpibSession.TimeoutMilliseconds = 12000; // Set the timeout to be 2s
             gpibSession.TerminationCharacterEnabled = true;
             gpibSession.Clear(); // Clear the session
 
