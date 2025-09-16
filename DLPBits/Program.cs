@@ -46,6 +46,8 @@ namespace DLPBits
         static void Main(string[] args)
         {
 
+            // TODO: Actually implement the connection so that it cares about the GPIB address
+
             // Setup the GPIB connection via the ResourceManager
             resManager = new NationalInstruments.Visa.ResourceManager();
 
@@ -122,7 +124,7 @@ namespace DLPBits
                     int partCount = 0;
 
                     // Define tasks
-                    var task1 = ctx.AddTask("[green]Sending DLP Programs[/]", maxValue:278);
+                    var task1 = ctx.AddTask("[green]Sending DLP Programs[/]", maxValue: 278);
 
                     while (!ctx.IsFinished)
                     {
@@ -151,9 +153,19 @@ namespace DLPBits
 
         private static void ClearMassMemory()
         {
-            // TODO: Add confirmation prompt
+            // Add confirmation prompt
+            var confirm = AnsiConsole.Confirm("Are you sure you want to clear mass memory? This action cannot be undone.", false);
+            if (!confirm)
+            {
+                AnsiConsole.MarkupLine("[yellow]Mass memory clear cancelled.[/]");
+                Thread.Sleep(1000); // Pause for a moment to let the user see the message
+                return;
+            }
 
             SendCommand("DISPOSE ALL");
+            AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
+
+            Thread.Sleep(1000); // Pause for a moment to let the user see the message
         }
 
         private static List<byte[]> ReadROM(string pathToFile)
@@ -194,12 +206,18 @@ namespace DLPBits
 
                 bROMRead = true;
 
+                AnsiConsole.MarkupLine("[green]ROM image read.[/]");
+                Thread.Sleep(1000); // Pause for a moment to let the user see the message
+
                 return extractedParts;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error reading file: {ex.Message}");
             }
+
+            AnsiConsole.MarkupLine("[red]ROM image failed to read.[/]");
+            Thread.Sleep(1000); // Pause for a moment to let the user see the message
 
             bROMRead = false;
             return null;
@@ -213,6 +231,9 @@ namespace DLPBits
                 .DefaultValue(18)
                 .Validate(n => n >= 1 && n <= 30 ? ValidationResult.Success() : ValidationResult.Error("Address must be between 1 and 30"))
                 );
+
+            AnsiConsole.MarkupLine("[green]GPIB Address updated.[/]");
+            Thread.Sleep(1000); // Pause for a moment to let the user see the message
         }
 
         // Extracts all byte segments between startSequence and endSequence (exclusive)
@@ -276,7 +297,7 @@ namespace DLPBits
             AnsiConsole.WriteLine("");
             AnsiConsole.WriteLine("GPIB Address: " + gpibIntAddress);
             AnsiConsole.WriteLine("");
-            string partCountString = (extractedParts != null && extractedParts.Count > 0) ? ", Parts: "+extractedParts.Count.ToString() : "";
+            string partCountString = (extractedParts != null && extractedParts.Count > 0) ? ", Parts: " + extractedParts.Count.ToString() : "";
             AnsiConsole.WriteLine("ROM Read: " + bROMRead.ToString() + partCountString);
             AnsiConsole.WriteLine("");
         }
