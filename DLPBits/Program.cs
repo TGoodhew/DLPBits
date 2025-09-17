@@ -82,6 +82,13 @@ namespace DLPBits
                         SetGPIBAddress();
                         break;
                     case "Read ROM":
+                        // Get the path to the ROM file
+                        AnsiConsole.Prompt<string>(
+                            new TextPrompt<string>("Enter path to ROM file:")
+                            .DefaultValue(pathToFile)
+                            .Validate(filePath => File.Exists(filePath) ? ValidationResult.Success() : ValidationResult.Error("File does not exist"))
+                        );
+                        // Read the ROM file and extract parts
                         extractedParts = ReadROM(pathToFile);
                         // update status for part number
                         break;
