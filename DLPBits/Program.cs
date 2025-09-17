@@ -14,14 +14,6 @@ namespace DLPBits
 {
     internal class Program
     {
-        public static GpibSession gpibSession;
-        public static NationalInstruments.Visa.ResourceManager resManager;
-        public static int gpibIntAddress = 18;
-        public static SemaphoreSlim srqWait = new SemaphoreSlim(0, 1); // use a semaphore to wait for the SRQ events
-
-        public static bool bROMRead = false;
-        public static List<byte[]> extractedParts = null;
-
         // This function translates the address based on the specific algorithm provided.
         // Code provided by https://github.com/KIrill-ka (EEVBlog user https://www.eevblog.com/forum/profile/?u=127220)
         static int AddrXlat(int a) =>
@@ -45,8 +37,12 @@ namespace DLPBits
         // This is the main entry point for the application.
         static void Main(string[] args)
         {
-
-            // TODO: Actually implement the connection so that it cares about the GPIB address
+            int gpibIntAddress = 18;
+            SemaphoreSlim srqWait = new SemaphoreSlim(0, 1);
+            bool bROMRead = false;
+            List<byte[]> extractedParts = null;
+            NationalInstruments.Visa.ResourceManager resManager;
+            GpibSession gpibSession;
 
             // Setup the GPIB connection via the ResourceManager
             resManager = new NationalInstruments.Visa.ResourceManager();
@@ -57,14 +53,14 @@ namespace DLPBits
             gpibSession.TerminationCharacterEnabled = true;
             gpibSession.Clear(); // Clear the session
 
-            gpibSession.ServiceRequest += SRQHandler;
+            gpibSession.ServiceRequest += (sender, e) => SRQHandler(sender, e, gpibSession, srqWait);
 
             // TODO: Add error handling if the device is not found or does not respond
             // TODO: Add code to get location of ROM file
 
             string pathToFile = @"SRAM_85620A.bin"; // From the KO4BB image here - https://www.ko4bb.com/getsimple/index.php?id=manuals&dir=HP_Agilent_Keysight/HP_85620A
 
-            DisplayeTitle();
+            DisplayeTitle(gpibIntAddress, bROMRead, extractedParts);
 
             // Ask for test choice
             var TestChoice = AnsiConsole.Prompt(
@@ -79,7 +75,7 @@ namespace DLPBits
                 switch (TestChoice)
                 {
                     case "Set GPIB Address":
-                        SetGPIBAddress();
+                        gpibIntAddress = SetGPIBAddress(gpibIntAddress);
                         break;
                     case "Read ROM":
                         // Get the path to the ROM file
@@ -89,19 +85,19 @@ namespace DLPBits
                             .Validate(filePath => File.Exists(filePath) ? ValidationResult.Success() : ValidationResult.Error("File does not exist"))
                         );
                         // Read the ROM file and extract parts
-                        extractedParts = ReadROM(pathToFile);
+                        extractedParts = ReadROM(pathToFile, ref bROMRead);
                         // update status for part number
                         break;
                     case "Clear Mass Memory":
-                        ClearMassMemory();
+                        ClearMassMemory(gpibSession);
                         break;
                     case "Create DLPs":
-                        CreateDLPs(extractedParts);
+                        CreateDLPs(extractedParts, gpibSession);
                         break;
                 }
 
                 // Clear the screen & Display title
-                DisplayeTitle();
+                DisplayeTitle(gpibIntAddress, bROMRead, extractedParts);
 
                 // Ask for test choice
                 TestChoice = AnsiConsole.Prompt(
@@ -116,7 +112,7 @@ namespace DLPBits
             gpibSession.SendRemoteLocalCommand(Ivi.Visa.GpibInstrumentRemoteLocalMode.GoToLocalDeassertRen); // Switch to local mode
         }
 
-        private static void CreateDLPs(List<byte[]> extractedParts)
+        private static void CreateDLPs(List<byte[]> extractedParts, GpibSession gpibSession)
         {
             //check for null or empty
             if (extractedParts == null || extractedParts.Count == 0)
@@ -158,7 +154,7 @@ namespace DLPBits
                 });
         }
 
-        private static void ClearMassMemory()
+        private static void ClearMassMemory(GpibSession gpibSession)
         {
             // Add confirmation prompt
             var confirm = AnsiConsole.Confirm("Are you sure you want to clear mass memory? This action cannot be undone.", false);
@@ -169,13 +165,13 @@ namespace DLPBits
                 return;
             }
 
-            SendCommand("DISPOSE ALL");
+            SendCommand("DISPOSE ALL", gpibSession);
             AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
 
             Thread.Sleep(1000); // Pause for a moment to let the user see the message
         }
 
-        private static List<byte[]> ReadROM(string pathToFile)
+        private static List<byte[]> ReadROM(string pathToFile, ref bool bROMRead)
         {
             byte[] fileBytes;
 
@@ -230,7 +226,7 @@ namespace DLPBits
             return null;
         }
 
-        private static void SetGPIBAddress()
+        private static int SetGPIBAddress(int gpibIntAddress)
         {
             // Prompt for the SA GPIB Address
             gpibIntAddress = AnsiConsole.Prompt(
@@ -241,6 +237,8 @@ namespace DLPBits
 
             AnsiConsole.MarkupLine("[green]GPIB Address updated.[/]");
             Thread.Sleep(1000); // Pause for a moment to let the user see the message
+
+            return gpibIntAddress;
         }
 
         // Extracts all byte segments between startSequence and endSequence (exclusive)
@@ -290,7 +288,7 @@ namespace DLPBits
             return -1;
         }
 
-        private static void DisplayeTitle()
+        private static void DisplayeTitle(int gpibIntAddress, bool bROMRead, List<byte[]> extractedParts)
         {
             // Clear screen and display header
             AnsiConsole.Clear();
@@ -309,7 +307,7 @@ namespace DLPBits
             AnsiConsole.WriteLine("");
         }
 
-        static private void SendCommand(string command)
+        static private void SendCommand(string command, GpibSession gpibSession)
         {
             try
             {
@@ -322,7 +320,7 @@ namespace DLPBits
             }
         }
 
-        static private string ReadResponse()
+        static private string ReadResponse(GpibSession gpibSession)
         {
             try
             {
@@ -335,10 +333,10 @@ namespace DLPBits
                 return string.Empty;
             }
         }
-        static private string QueryString(string command)
+        static private string QueryString(string command, GpibSession gpibSession)
         {
-            SendCommand(command);
-            var response = ReadResponse();
+            SendCommand(command, gpibSession);
+            var response = ReadResponse(gpibSession);
             if (string.IsNullOrWhiteSpace(response))
             {
                 AnsiConsole.MarkupLine("[yellow]Warning: No response from instrument.[/]");
@@ -346,7 +344,7 @@ namespace DLPBits
             return response;
         }
 
-        public static void SRQHandler(object sender, Ivi.Visa.VisaEventArgs e)
+        public static void SRQHandler(object sender, Ivi.Visa.VisaEventArgs e, GpibSession gpibSession, SemaphoreSlim srqWait)
         {
             try
             {
@@ -357,7 +355,7 @@ namespace DLPBits
 
                 gpibSession.DiscardEvents(EventType.ServiceRequest);
 
-                SendCommand("*CLS");
+                SendCommand("*CLS", gpibSession);
 
                 srqWait.Release();
             }
