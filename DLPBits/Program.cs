@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,13 +15,10 @@ namespace DLPBits
 {
     internal class Program
     {
-        public static GpibSession gpibSession;
-        public static NationalInstruments.Visa.ResourceManager resManager;
-        public static int gpibIntAddress = 18;
-        public static SemaphoreSlim srqWait = new SemaphoreSlim(0, 1); // use a semaphore to wait for the SRQ events
+        // General next steps
+        // TODO: Consistent AnsiConsole prompts and messages
+        // TODO: Minimize repeated errors and warnings
 
-        public static bool bROMRead = false;
-        public static List<byte[]> extractedParts = null;
 
         // This function translates the address based on the specific algorithm provided.
         // Code provided by https://github.com/KIrill-ka (EEVBlog user https://www.eevblog.com/forum/profile/?u=127220)
@@ -45,26 +43,16 @@ namespace DLPBits
         // This is the main entry point for the application.
         static void Main(string[] args)
         {
-
-            // TODO: Actually implement the connection so that it cares about the GPIB address
-
-            // Setup the GPIB connection via the ResourceManager
-            resManager = new NationalInstruments.Visa.ResourceManager();
-
-            // Create a GPIB session for the specified address
-            gpibSession = (GpibSession)resManager.Open(string.Format("GPIB0::{0}::INSTR", gpibIntAddress));
-            gpibSession.TimeoutMilliseconds = 2000; // Set the timeout to be 2s
-            gpibSession.TerminationCharacterEnabled = true;
-            gpibSession.Clear(); // Clear the session
-
-            gpibSession.ServiceRequest += SRQHandler;
-
-            // TODO: Add error handling if the device is not found or does not respond
-            // TODO: Add code to get location of ROM file
+            int gpibIntAddress = 18; // This is the default address for the SA
+            SemaphoreSlim srqWait = new SemaphoreSlim(0, 1);
+            bool bROMRead = false;
+            List<byte[]> extractedParts = null;
+            NationalInstruments.Visa.ResourceManager resManager = null;
+            GpibSession gpibSession = null;
 
             string pathToFile = @"SRAM_85620A.bin"; // From the KO4BB image here - https://www.ko4bb.com/getsimple/index.php?id=manuals&dir=HP_Agilent_Keysight/HP_85620A
 
-            DisplayeTitle();
+            DisplayeTitle(gpibIntAddress, bROMRead, extractedParts);
 
             // Ask for test choice
             var TestChoice = AnsiConsole.Prompt(
@@ -79,7 +67,7 @@ namespace DLPBits
                 switch (TestChoice)
                 {
                     case "Set GPIB Address":
-                        SetGPIBAddress();
+                        gpibIntAddress = SetGPIBAddress(gpibIntAddress);
                         break;
                     case "Read ROM":
                         // Get the path to the ROM file
@@ -93,15 +81,15 @@ namespace DLPBits
                         // update status for part number
                         break;
                     case "Clear Mass Memory":
-                        ClearMassMemory();
+                        ClearMassMemory(gpibIntAddress, srqWait, ref resManager, ref gpibSession);
                         break;
                     case "Create DLPs":
-                        CreateDLPs(extractedParts);
+                        CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, ref srqWait);
                         break;
                 }
 
                 // Clear the screen & Display title
-                DisplayeTitle();
+                DisplayeTitle(gpibIntAddress, bROMRead, extractedParts);
 
                 // Ask for test choice
                 TestChoice = AnsiConsole.Prompt(
@@ -111,23 +99,88 @@ namespace DLPBits
                     .AddChoices(new[] { "Set GPIB Address", "Read ROM", "Clear Mass Memory", "Create DLPs", "Exit" })
                     );
             }
-
-            // Go to local and exit remote mode
-            gpibSession.SendRemoteLocalCommand(Ivi.Visa.GpibInstrumentRemoteLocalMode.GoToLocalDeassertRen); // Switch to local mode
         }
 
-        private static void CreateDLPs(List<byte[]> extractedParts)
+        private static bool ConnectToDevice(int gpibIntAddress, ref SemaphoreSlim srqWait, ref ResourceManager resManager, ref GpibSession gpibSession)
+        {
+            if (resManager != null || gpibSession != null)
+            {
+                AnsiConsole.MarkupLine("[yellow]Warning: Already connected to a device. Disconnecting and reconnecting.[/]");
+                gpibSession?.Dispose();
+                resManager?.Dispose();
+                resManager = null;
+                gpibSession = null;
+                Thread.Sleep(1000); // Pause for a moment to let the user see the message
+            }
+
+            try
+            {
+                // Setup the GPIB connection via the ResourceManager
+                resManager = new NationalInstruments.Visa.ResourceManager();
+
+                // Create a GPIB session for the specified address
+                gpibSession = (GpibSession)resManager.Open(string.Format("GPIB0::{0}::INSTR", gpibIntAddress));
+                gpibSession.TimeoutMilliseconds = 2000; // Set the timeout to be 2s
+                gpibSession.TerminationCharacterEnabled = true;
+                gpibSession.Clear(); // Clear the session
+
+                var sessionCopy = gpibSession;
+                var srqWaitCopy = srqWait;
+                gpibSession.ServiceRequest += (sender, e) => SRQHandler(sender, e, sessionCopy, srqWaitCopy);
+
+                var idn = QueryString("ID?", gpibSession);
+
+                if (string.IsNullOrWhiteSpace(idn))
+                {
+                    AnsiConsole.MarkupLine("[Red]Device failed to connect. Check GPIB address and device state.[/]");
+                    Thread.Sleep(1000); // Pause for a moment to let the user see the message
+                    resManager = null;
+                    gpibSession = null;
+                    return false;
+                }
+                else
+                {
+                    // Successfully connected
+                    AnsiConsole.MarkupLine("[green]Device connected: [/]" + idn);
+                    Thread.Sleep(1000); // Pause for a moment to let the user see the message
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.MarkupLine($"[Red]Device failed to connect. GPIB Error: {ex.Message}[/]");
+                Thread.Sleep(1000); // Pause for a moment to let the user see the message
+                resManager = null;
+                gpibSession = null;
+                return false;
+            }
+        }
+
+        private static void CreateDLPs(List<byte[]> extractedParts, ref int gpibIntAddress, ref GpibSession gpibSession, ref ResourceManager resManager, ref SemaphoreSlim srqWait)
         {
             //check for null or empty
             if (extractedParts == null || extractedParts.Count == 0)
             {
-                Console.WriteLine("No parts available to create DLPs. Please read the ROM first.");
+                AnsiConsole.MarkupLine($"[Red]No parts available to create DLPs. Please read the ROM first.[/]");
+                Thread.Sleep(1000);
                 return;
             }
+
+            if (!ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession))
+            {
+                AnsiConsole.MarkupLine("[red]Error: Device not connected. Check GPIB address and device state.[/]");
+                Thread.Sleep(1000); // Pause for a moment to let the user see the message
+                return;
+            }
+
+            // Use a local variable to avoid using ref parameter in lambda
+            var localGpibSession = gpibSession;
 
             AnsiConsole.Progress()
                 .Start(ctx =>
                 {
+                    Debug.WriteLine($"Starting to write DLPs");
+
                     int partCount = 0;
 
                     // Define tasks
@@ -135,19 +188,22 @@ namespace DLPBits
 
                     while (!ctx.IsFinished)
                     {
-                        // TODO: Fix up the debug writing here to be more useful
-
-                        //Console.WriteLine($"Part {partCount + 1}: {extractedParts[partCount].Length} bytes");
+                        Debug.WriteLine($"Part {partCount + 1}: {extractedParts[partCount].Length} bytes");
 
                         // Convert the byte array to a string using UTF-8 encoding
                         string partString = Encoding.UTF8.GetString(extractedParts[partCount]);
                         Debug.WriteLine("FUNCDEF " + partString + ";");
-                        gpibSession.FormattedIO.WriteLine("FUNCDEF " + partString + ";");
 
-                        // TODO: Check for errors here
+                        localGpibSession.FormattedIO.WriteLine("FUNCDEF " + partString + ";");
 
-                        //gpibSession.FormattedIO.WriteLine("ERR?");
-                        //Console.WriteLine("Error: " + gpibSession.FormattedIO.ReadString());
+                        var errorResult = Convert.ToInt32(QueryString("ERR?", localGpibSession));
+
+                        if (errorResult != 0)
+                        {
+                            AnsiConsole.MarkupLine($"[red]Error writing DLP part {partCount + 1}: Error Code {errorResult}[/]");
+                            Debug.WriteLine($"Error writing DLP part {partCount + 1}: Error Code {errorResult}");
+                            break;
+                        }
 
                         partCount++;
 
@@ -158,26 +214,33 @@ namespace DLPBits
                 });
         }
 
-        private static void ClearMassMemory()
+        private static void ClearMassMemory(int gpibIntAddress, SemaphoreSlim srqWait, ref ResourceManager resManager, ref GpibSession gpibSession)
         {
-            // Add confirmation prompt
             var confirm = AnsiConsole.Confirm("Are you sure you want to clear mass memory? This action cannot be undone.", false);
             if (!confirm)
             {
                 AnsiConsole.MarkupLine("[yellow]Mass memory clear cancelled.[/]");
-                Thread.Sleep(1000); // Pause for a moment to let the user see the message
+                Thread.Sleep(1000);
                 return;
             }
 
-            SendCommand("DISPOSE ALL");
-            AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
+            ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession);
 
+            if (resManager != null || gpibSession != null)
+            {
+                SendCommand("DISPOSE ALL", gpibSession);
+                AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
+                Thread.Sleep(1000);
+                return;
+            }
+
+            AnsiConsole.MarkupLine("[Red]Error: Device not connected. Check GPIB address and device state.[/]");
             Thread.Sleep(1000); // Pause for a moment to let the user see the message
         }
 
-        private static List<byte[]> ReadROM(string pathToFile)
+        private static List<byte[]> ReadROM(string pathToFile, ref bool bROMRead)
         {
-            byte[] fileBytes;
+            byte[] fileBytes = null;
 
             try
             {
@@ -230,7 +293,7 @@ namespace DLPBits
             return null;
         }
 
-        private static void SetGPIBAddress()
+        private static int SetGPIBAddress(int gpibIntAddress)
         {
             // Prompt for the SA GPIB Address
             gpibIntAddress = AnsiConsole.Prompt(
@@ -241,6 +304,8 @@ namespace DLPBits
 
             AnsiConsole.MarkupLine("[green]GPIB Address updated.[/]");
             Thread.Sleep(1000); // Pause for a moment to let the user see the message
+
+            return gpibIntAddress;
         }
 
         // Extracts all byte segments between startSequence and endSequence (exclusive)
@@ -290,7 +355,7 @@ namespace DLPBits
             return -1;
         }
 
-        private static void DisplayeTitle()
+        private static void DisplayeTitle(int gpibIntAddress, bool bROMRead, List<byte[]> extractedParts)
         {
             // Clear screen and display header
             AnsiConsole.Clear();
@@ -309,7 +374,7 @@ namespace DLPBits
             AnsiConsole.WriteLine("");
         }
 
-        static private void SendCommand(string command)
+        static private void SendCommand(string command, GpibSession gpibSession)
         {
             try
             {
@@ -322,7 +387,7 @@ namespace DLPBits
             }
         }
 
-        static private string ReadResponse()
+        static private string ReadResponse(GpibSession gpibSession)
         {
             try
             {
@@ -335,10 +400,10 @@ namespace DLPBits
                 return string.Empty;
             }
         }
-        static private string QueryString(string command)
+        static private string QueryString(string command, GpibSession gpibSession)
         {
-            SendCommand(command);
-            var response = ReadResponse();
+            SendCommand(command, gpibSession);
+            var response = ReadResponse(gpibSession);
             if (string.IsNullOrWhiteSpace(response))
             {
                 AnsiConsole.MarkupLine("[yellow]Warning: No response from instrument.[/]");
@@ -346,7 +411,7 @@ namespace DLPBits
             return response;
         }
 
-        public static void SRQHandler(object sender, Ivi.Visa.VisaEventArgs e)
+        public static void SRQHandler(object sender, Ivi.Visa.VisaEventArgs e, GpibSession gpibSession, SemaphoreSlim srqWait)
         {
             try
             {
@@ -357,7 +422,7 @@ namespace DLPBits
 
                 gpibSession.DiscardEvents(EventType.ServiceRequest);
 
-                SendCommand("*CLS");
+                SendCommand("*CLS", gpibSession);
 
                 srqWait.Release();
             }
