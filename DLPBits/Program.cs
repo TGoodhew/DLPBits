@@ -493,7 +493,7 @@ namespace DLPBits
                     return -1;
                 }
 
-                if (startIndex < 0 || startIndex >= data.Length)
+                if (startIndex < 0 || startIndex > data.Length)
                 {
                     Debug.WriteLine($"FindSequence: Invalid start index {startIndex} for data length {data.Length}");
                     return -1;
