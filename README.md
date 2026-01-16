@@ -58,7 +58,7 @@ Before you can use DLPBits, ensure you have the following:
 
 4. **Follow the interactive menu**
    - **Set GPIB Address** - Configure the GPIB address for your spectrum analyzer (default: 18)
-   - **Read ROM** - Read SRAM Image file
+   - **Read SRAM Image File** - Read and parse the SRAM dump image file (SRAM_85620A.bin)
    - **Clear Mass Memory** - Clear existing data from the Mass Memory Module (optional)
    - **Create DLPs** - Program the DLPs to the Mass Memory Module
    - **Exit** - Close the application
