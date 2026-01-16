@@ -230,7 +230,6 @@ namespace DLPBits
 
                 if (!ConnectToDevice(gpibIntAddress, ref resManager, ref gpibSession))
                 {
-                    ValidateDeviceConnection(resManager, gpibSession, "CreateDLPs");
                     return;
                 }
 
@@ -310,9 +309,7 @@ namespace DLPBits
                     return;
                 }
 
-                ConnectToDevice(gpibIntAddress, ref resManager, ref gpibSession);
-
-                if (!ValidateDeviceConnection(resManager, gpibSession, "ClearMassMemory"))
+                if (!ConnectToDevice(gpibIntAddress, ref resManager, ref gpibSession))
                 {
                     return;
                 }
@@ -550,23 +547,6 @@ namespace DLPBits
                 Debug.WriteLine($"DisplayTitle Exception Details: {ex}");
                 // Don't show error to user for display issues, just log it
             }
-        }
-
-        /// <summary>
-        /// Validates device connection and displays error if not connected.
-        /// Returns true if device is connected, false otherwise.
-        /// </summary>
-        private static bool ValidateDeviceConnection(ResourceManager resManager, GpibSession gpibSession, string operationName)
-        {
-            if (resManager != null && gpibSession != null)
-            {
-                return true;
-            }
-
-            AnsiConsole.MarkupLine("[red]Error: Device not connected. Check GPIB address and device state.[/]");
-            Debug.WriteLine($"{operationName}: Device not connected");
-            Thread.Sleep(UserMessageDelayMilliseconds);
-            return false;
         }
 
         static private void SendCommand(string command, GpibSession gpibSession)
