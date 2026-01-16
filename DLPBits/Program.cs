@@ -292,7 +292,18 @@ namespace DLPBits
                 var translatedBytes = new List<byte>();
                 for (int p = 0; p < fileBytes.Length; p++)
                 {
-                    int d = fileBytes[AddrXlat(p)];
+                    int translatedAddress = AddrXlat(p);
+                    
+                    if (translatedAddress < 0 || translatedAddress >= fileBytes.Length)
+                    {
+                        AnsiConsole.MarkupLine($"[red]Address translation error at position {p}[/]");
+                        AnsiConsole.MarkupLine($"[red]Translated to: {translatedAddress} (valid range: 0-{fileBytes.Length - 1})[/]");
+                        Debug.WriteLine($"Address translation error: {p} -> {translatedAddress} (array length: {fileBytes.Length})");
+                        bROMRead = false;
+                        return null;
+                    }
+                    
+                    int d = fileBytes[translatedAddress];
                     byte newByte = (byte)(
                         (d >> 7) |
                         ((d << 1) & 2) |
