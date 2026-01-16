@@ -194,9 +194,9 @@ namespace DLPBits
                     int partCount = 0;
 
                     // Define tasks
-                    var task1 = ctx.AddTask("[green]Sending DLP Programs[/]", maxValue: 278);
+                    var task1 = ctx.AddTask("[green]Sending DLP Programs[/]", maxValue: extractedParts.Count);
 
-                    while (!ctx.IsFinished)
+                    while (!ctx.IsFinished && partCount < extractedParts.Count)
                     {
                         Debug.WriteLine($"Part {partCount + 1}: {extractedParts[partCount].Length} bytes");
 
@@ -236,7 +236,7 @@ namespace DLPBits
 
             ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession);
 
-            if (resManager != null || gpibSession != null)
+            if (resManager != null && gpibSession != null)
             {
                 SendCommand("DISPOSE ALL", gpibSession);
                 AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
