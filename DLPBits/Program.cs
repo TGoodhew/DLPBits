@@ -236,7 +236,7 @@ namespace DLPBits
 
             ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession);
 
-            if (resManager != null || gpibSession != null)
+            if (resManager != null && gpibSession != null)
             {
                 SendCommand("DISPOSE ALL", gpibSession);
                 AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
