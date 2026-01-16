@@ -252,6 +252,8 @@ namespace DLPBits
 
         private static void CreateDLPs(List<byte[]> extractedParts, ref int gpibIntAddress, ref GpibSession gpibSession, ref ResourceManager resManager, CancellationToken cancellationToken)
         {
+            GpibSession localGpibSession = null;
+            
             try
             {
                 //check for null or empty
@@ -269,7 +271,7 @@ namespace DLPBits
                 }
 
                 // Use a local variable to avoid using ref parameter in lambda
-                var localGpibSession = gpibSession;
+                localGpibSession = gpibSession;
 
                 AnsiConsole.Progress()
                     .Start(ctx =>
@@ -347,16 +349,25 @@ namespace DLPBits
                 {
                     AnsiConsole.MarkupLine("[yellow]Clearing mass memory...[/]");
                     Debug.WriteLine("CreateDLPs: User chose to clear memory after cancellation");
-                    try
+                    
+                    if (localGpibSession != null)
                     {
-                        SendCommand("DISPOSE ALL", gpibSession);
-                        AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
-                        Debug.WriteLine("CreateDLPs: Mass memory cleared after cancellation");
+                        try
+                        {
+                            SendCommand("DISPOSE ALL", localGpibSession);
+                            AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
+                            Debug.WriteLine("CreateDLPs: Mass memory cleared after cancellation");
+                        }
+                        catch (Exception ex)
+                        {
+                            AnsiConsole.MarkupLine($"[red]Error clearing mass memory: {ex.Message}[/]");
+                            Debug.WriteLine($"CreateDLPs Clear Memory Exception Details: {ex}");
+                        }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        AnsiConsole.MarkupLine($"[red]Error clearing mass memory: {ex.Message}[/]");
-                        Debug.WriteLine($"CreateDLPs Clear Memory Exception Details: {ex}");
+                        AnsiConsole.MarkupLine("[red]Cannot clear memory: GPIB session not available.[/]");
+                        Debug.WriteLine("CreateDLPs: Cannot clear memory, GPIB session is null");
                     }
                 }
                 else
@@ -366,7 +377,7 @@ namespace DLPBits
                 }
                 
                 Thread.Sleep(UserMessageDelayMilliseconds);
-                throw; // Re-throw to be handled by the main loop
+                // Return normally after handling cancellation, don't propagate the exception
             }
             catch (Exception ex)
             {
