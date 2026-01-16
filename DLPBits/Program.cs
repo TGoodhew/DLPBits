@@ -196,7 +196,7 @@ namespace DLPBits
                     // Define tasks
                     var task1 = ctx.AddTask("[green]Sending DLP Programs[/]", maxValue: 278);
 
-                    while (!ctx.IsFinished)
+                    while (!ctx.IsFinished && partCount < extractedParts.Count)
                     {
                         Debug.WriteLine($"Part {partCount + 1}: {extractedParts[partCount].Length} bytes");
 
