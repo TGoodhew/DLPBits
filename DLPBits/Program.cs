@@ -14,10 +14,6 @@ namespace DLPBits
 {
     internal class Program
     {
-        // General next steps
-        // TODO: Consistent AnsiConsole prompts and messages
-        // TODO: Minimize repeated errors and warnings
-
         // Named constants to replace magic numbers
         private const int DefaultGpibAddress = 18;
         private const int GpibTimeoutMilliseconds = 2000;
@@ -194,7 +190,7 @@ namespace DLPBits
 
                 if (string.IsNullOrWhiteSpace(idn))
                 {
-                    AnsiConsole.MarkupLine("[Red]Device failed to connect. Check GPIB address and device state.[/]");
+                    AnsiConsole.MarkupLine("[red]Device failed to connect. Check GPIB address and device state.[/]");
                     Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
                     resManager = null;
                     gpibSession = null;
@@ -210,7 +206,7 @@ namespace DLPBits
             }
             catch (Exception ex)
             {
-                AnsiConsole.MarkupLine($"[Red]Device failed to connect. GPIB Error: {ex.Message}[/]");
+                AnsiConsole.MarkupLine($"[red]Device failed to connect. GPIB Error: {ex.Message}[/]");
                 Debug.WriteLine($"ConnectToDevice Exception Details: {ex}");
                 Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
                 resManager = null;
@@ -226,7 +222,7 @@ namespace DLPBits
                 //check for null or empty
                 if (extractedParts == null || extractedParts.Count == 0)
                 {
-                    AnsiConsole.MarkupLine($"[Red]No parts available to create DLPs. Please read the ROM first.[/]");
+                    AnsiConsole.MarkupLine($"[red]No parts available to create DLPs. Please read the ROM first.[/]");
                     Debug.WriteLine("CreateDLPs: No parts available");
                     Thread.Sleep(UserMessageDelayMilliseconds);
                     return;
@@ -234,9 +230,7 @@ namespace DLPBits
 
                 if (!ConnectToDevice(gpibIntAddress, ref resManager, ref gpibSession))
                 {
-                    AnsiConsole.MarkupLine("[red]Error: Device not connected. Check GPIB address and device state.[/]");
-                    Debug.WriteLine("CreateDLPs: Failed to connect to device");
-                    Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
+                    ValidateDeviceConnection(resManager, gpibSession, "CreateDLPs");
                     return;
                 }
 
@@ -318,18 +312,15 @@ namespace DLPBits
 
                 ConnectToDevice(gpibIntAddress, ref resManager, ref gpibSession);
 
-                if (resManager != null && gpibSession != null)
+                if (!ValidateDeviceConnection(resManager, gpibSession, "ClearMassMemory"))
                 {
-                    SendCommand("DISPOSE ALL", gpibSession);
-                    AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
-                    Debug.WriteLine("ClearMassMemory: Mass memory successfully cleared");
-                    Thread.Sleep(UserMessageDelayMilliseconds);
                     return;
                 }
 
-                AnsiConsole.MarkupLine("[Red]Error: Device not connected. Check GPIB address and device state.[/]");
-                Debug.WriteLine("ClearMassMemory: Device not connected");
-                Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
+                SendCommand("DISPOSE ALL", gpibSession);
+                AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
+                Debug.WriteLine("ClearMassMemory: Mass memory successfully cleared");
+                Thread.Sleep(UserMessageDelayMilliseconds);
             }
             catch (Exception ex)
             {
@@ -559,6 +550,23 @@ namespace DLPBits
                 Debug.WriteLine($"DisplayTitle Exception Details: {ex}");
                 // Don't show error to user for display issues, just log it
             }
+        }
+
+        /// <summary>
+        /// Validates device connection and displays error if not connected.
+        /// Returns true if device is connected, false otherwise.
+        /// </summary>
+        private static bool ValidateDeviceConnection(ResourceManager resManager, GpibSession gpibSession, string operationName)
+        {
+            if (resManager != null && gpibSession != null)
+            {
+                return true;
+            }
+
+            AnsiConsole.MarkupLine("[red]Error: Device not connected. Check GPIB address and device state.[/]");
+            Debug.WriteLine($"{operationName}: Device not connected");
+            Thread.Sleep(UserMessageDelayMilliseconds);
+            return false;
         }
 
         static private void SendCommand(string command, GpibSession gpibSession)
