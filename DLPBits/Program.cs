@@ -54,7 +54,7 @@ namespace DLPBits
 
             try
             {
-                DisplayeTitle(gpibIntAddress, bROMRead, extractedParts);
+                DisplayTitle(gpibIntAddress, bROMRead, extractedParts);
 
                 // Ask for test choice
                 var TestChoice = AnsiConsole.Prompt(
@@ -91,7 +91,7 @@ namespace DLPBits
                     }
 
                     // Clear the screen & Display title
-                    DisplayeTitle(gpibIntAddress, bROMRead, extractedParts);
+                    DisplayTitle(gpibIntAddress, bROMRead, extractedParts);
 
                     // Ask for test choice
                     TestChoice = AnsiConsole.Prompt(
@@ -365,7 +365,7 @@ namespace DLPBits
             return -1;
         }
 
-        private static void DisplayeTitle(int gpibIntAddress, bool bROMRead, List<byte[]> extractedParts)
+        private static void DisplayTitle(int gpibIntAddress, bool bROMRead, List<byte[]> extractedParts)
         {
             // Clear screen and display header
             AnsiConsole.Clear();
