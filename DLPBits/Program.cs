@@ -25,6 +25,7 @@ namespace DLPBits
         private const byte DlpStartByte2 = 0x80;
         private const byte DlpEndByte1 = 0x3b;
         private const byte DlpEndByte2 = 0xff;
+        private const int CancellationCheckInterval = 1000;
 
         // This function translates the address based on the specific algorithm provided.
         // Code provided by https://github.com/KIrill-ka (EEVBlog user https://www.eevblog.com/forum/profile/?u=127220)
@@ -60,13 +61,7 @@ namespace DLPBits
             string pathToFile = @"SRAM_85620A.bin"; // From the KO4BB image here - https://www.ko4bb.com/getsimple/index.php?id=manuals&dir=HP_Agilent_Keysight/HP_85620A
 
             // Set up Ctrl+C handler for graceful cancellation
-            cancelHandler = (sender, e) =>
-            {
-                e.Cancel = true; // Prevent immediate termination
-                AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
-                Debug.WriteLine("Cancellation requested via Ctrl+C");
-                cts.Cancel();
-            };
+            cancelHandler = CreateCancellationHandler(cts);
             Console.CancelKeyPress += cancelHandler;
 
             try
@@ -145,6 +140,18 @@ namespace DLPBits
             }
         }
 
+        // Helper method to create cancellation handler
+        private static ConsoleCancelEventHandler CreateCancellationHandler(CancellationTokenSource cts)
+        {
+            return (sender, e) =>
+            {
+                e.Cancel = true; // Prevent immediate termination
+                AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
+                Debug.WriteLine("Cancellation requested via Ctrl+C");
+                cts.Cancel();
+            };
+        }
+
         // Helper method to reset cancellation token if needed
         private static void ResetCancellationTokenIfNeeded(ref CancellationTokenSource cts, ref ConsoleCancelEventHandler cancelHandler)
         {
@@ -153,13 +160,7 @@ namespace DLPBits
                 Console.CancelKeyPress -= cancelHandler;
                 cts.Dispose();
                 cts = new CancellationTokenSource();
-                cancelHandler = (sender, e) =>
-                {
-                    e.Cancel = true;
-                    AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
-                    Debug.WriteLine("Cancellation requested via Ctrl+C");
-                    cts.Cancel();
-                };
+                cancelHandler = CreateCancellationHandler(cts);
                 Console.CancelKeyPress += cancelHandler;
             }
         }
@@ -378,8 +379,8 @@ namespace DLPBits
                 var translatedBytes = new List<byte>();
                 for (int p = 0; p < fileBytes.Length; p++)
                 {
-                    // Check for cancellation every 1000 iterations for better responsiveness
-                    if (p % 1000 == 0)
+                    // Check for cancellation periodically for better responsiveness
+                    if (p % CancellationCheckInterval == 0)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                     }
