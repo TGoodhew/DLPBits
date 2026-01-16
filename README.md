@@ -1,6 +1,6 @@
 # DLPBits
 
-The console app takes the SDRAM dump image from KO4BB and uses NI-VISA to program an 8560E Spectrum Analyzer and its 85620A Mass Memory Module with the DLPs
+The console app takes the SRAM dump image from KO4BB and uses NI-VISA to program an 8560E Spectrum Analyzer and its 85620A Mass Memory Module with the DLPs
 
 You can get the image from https://www.ko4bb.com/getsimple/index.php?id=manuals&dir=HP_Agilent_Keysight/HP_85620A
 
@@ -58,7 +58,7 @@ Before you can use DLPBits, ensure you have the following:
 
 4. **Follow the interactive menu**
    - **Set GPIB Address** - Configure the GPIB address for your spectrum analyzer (default: 18)
-   - **Read ROM** - Read and parse the SDRAM dump image file (SRAM_85620A.bin)
+   - **Read ROM** - Read and parse the SRAM dump image file (SRAM_85620A.bin)
    - **Clear Mass Memory** - Clear existing data from the Mass Memory Module (optional)
    - **Create DLPs** - Program the DLPs to the Mass Memory Module
    - **Exit** - Close the application
@@ -103,7 +103,7 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 ## Authors and Acknowledgments
 
 - **Tony Goodhew** (tony@schnauzergroup.com) - Original author and maintainer
-- **[KIrill-ka](https://github.com/KIrill-ka)** - For providing the critical address translation algorithm to decode the SDRAM image (EEVBlog user: https://www.eevblog.com/forum/profile/?u=127220)
-- **[KO4BB](https://www.ko4bb.com/)** - For providing the SDRAM dump image files
+- **[KIrill-ka](https://github.com/KIrill-ka)** - For providing the critical address translation algorithm to decode the SRAM image (EEVBlog user: https://www.eevblog.com/forum/profile/?u=127220)
+- **[KO4BB](https://www.ko4bb.com/)** - For providing the SRAM dump image files
 
 Special thanks to the EEVBlog community for their support and contributions to this project.
