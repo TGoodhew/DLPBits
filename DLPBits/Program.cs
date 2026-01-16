@@ -88,8 +88,19 @@ namespace DLPBits
                                     .DefaultValue(pathToFile)
                                     .Validate(filePath => File.Exists(filePath) ? ValidationResult.Success() : ValidationResult.Error("File does not exist"))
                                 );
-                                // Create a new CancellationTokenSource for this operation
-                                cts = new CancellationTokenSource();
+                                // Reset cancellation token if it was cancelled before
+                                if (cts.IsCancellationRequested)
+                                {
+                                    cts = new CancellationTokenSource();
+                                    // Re-register the Ctrl+C handler
+                                    Console.CancelKeyPress += (sender, e) =>
+                                    {
+                                        e.Cancel = true;
+                                        AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
+                                        Debug.WriteLine("Cancellation requested via Ctrl+C");
+                                        cts.Cancel();
+                                    };
+                                }
                                 AnsiConsole.MarkupLine("[dim]Press Ctrl+C to cancel the operation[/]");
                                 // Read the ROM file and extract parts
                                 extractedParts = ReadSRAMImage(romFilename, ref bROMRead, cts.Token);
@@ -99,8 +110,19 @@ namespace DLPBits
                                 ClearMassMemory(gpibIntAddress, ref resManager, ref gpibSession);
                                 break;
                             case "Create DLPs":
-                                // Create a new CancellationTokenSource for this operation
-                                cts = new CancellationTokenSource();
+                                // Reset cancellation token if it was cancelled before
+                                if (cts.IsCancellationRequested)
+                                {
+                                    cts = new CancellationTokenSource();
+                                    // Re-register the Ctrl+C handler
+                                    Console.CancelKeyPress += (sender, e) =>
+                                    {
+                                        e.Cancel = true;
+                                        AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
+                                        Debug.WriteLine("Cancellation requested via Ctrl+C");
+                                        cts.Cancel();
+                                    };
+                                }
                                 AnsiConsole.MarkupLine("[dim]Press Ctrl+C to cancel the operation[/]");
                                 CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, cts.Token);
                                 break;
