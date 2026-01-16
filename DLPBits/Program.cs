@@ -60,14 +60,7 @@ namespace DLPBits
             try
             {
                 DisplayTitle(gpibIntAddress, bROMRead, extractedParts);
-
-                // Ask for test choice
-                var TestChoice = AnsiConsole.Prompt(
-                    new SelectionPrompt<string>()
-                        .Title("Select the test to run?")
-                        .PageSize(10)
-                        .AddChoices(new[] { "Set GPIB Address", "Read SRAM Image File", "Clear Mass Memory", "Create DLPs", "Exit" })
-                        );
+                var TestChoice = ShowMenu();
 
                 while (TestChoice != "Exit")
                 {
@@ -106,14 +99,7 @@ namespace DLPBits
 
                     // Clear the screen & Display title
                     DisplayTitle(gpibIntAddress, bROMRead, extractedParts);
-
-                    // Ask for test choice
-                    TestChoice = AnsiConsole.Prompt(
-                    new SelectionPrompt<string>()
-                        .Title("Select the test to run?")
-                        .PageSize(10)
-                        .AddChoices(new[] { "Set GPIB Address", "Read SRAM Image File", "Clear Mass Memory", "Create DLPs", "Exit" })
-                        );
+                    TestChoice = ShowMenu();
                 }
             }
             catch (Exception ex)
@@ -520,6 +506,16 @@ namespace DLPBits
             }
             
             return -1;
+        }
+
+        private static string ShowMenu()
+        {
+            return AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("Select the test to run?")
+                    .PageSize(10)
+                    .AddChoices(new[] { "Set GPIB Address", "Read SRAM Image File", "Clear Mass Memory", "Create DLPs", "Exit" })
+            );
         }
 
         private static void DisplayTitle(int gpibIntAddress, bool bROMRead, List<byte[]> extractedParts)
