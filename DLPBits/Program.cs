@@ -56,7 +56,6 @@ namespace DLPBits
         static void Main(string[] args)
         {
             int gpibIntAddress = DefaultGpibAddress; // This is the default address for the SA
-            SemaphoreSlim srqWait = new SemaphoreSlim(0, 1);
             bool bROMRead = false;
             List<byte[]> extractedParts = null;
             NationalInstruments.Visa.ResourceManager resManager = null;
@@ -97,10 +96,10 @@ namespace DLPBits
                                 // update status for part number
                                 break;
                             case "Clear Mass Memory":
-                                ClearMassMemory(gpibIntAddress, srqWait, ref resManager, ref gpibSession);
+                                ClearMassMemory(gpibIntAddress, ref resManager, ref gpibSession);
                                 break;
                             case "Create DLPs":
-                                CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, ref srqWait);
+                                CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager);
                                 break;
                         }
                     }
@@ -152,11 +151,10 @@ namespace DLPBits
                 // Dispose of resources to prevent resource leaks
                 gpibSession?.Dispose();
                 resManager?.Dispose();
-                srqWait?.Dispose();
             }
         }
 
-        private static bool ConnectToDevice(int gpibIntAddress, ref SemaphoreSlim srqWait, ref ResourceManager resManager, ref GpibSession gpibSession)
+        private static bool ConnectToDevice(int gpibIntAddress, ref ResourceManager resManager, ref GpibSession gpibSession)
         {
             if (resManager != null && gpibSession != null)
             {
@@ -225,8 +223,7 @@ namespace DLPBits
                 gpibSession.Clear(); // Clear the session
 
                 var sessionCopy = gpibSession;
-                var srqWaitCopy = srqWait;
-                gpibSession.ServiceRequest += (sender, e) => SRQHandler(sender, e, sessionCopy, srqWaitCopy);
+                gpibSession.ServiceRequest += (sender, e) => SRQHandler(sender, e, sessionCopy);
 
                 var idn = QueryString("ID?", gpibSession);
 
@@ -266,7 +263,7 @@ namespace DLPBits
             }
         }
 
-        private static void CreateDLPs(List<byte[]> extractedParts, ref int gpibIntAddress, ref GpibSession gpibSession, ref ResourceManager resManager, ref SemaphoreSlim srqWait)
+        private static void CreateDLPs(List<byte[]> extractedParts, ref int gpibIntAddress, ref GpibSession gpibSession, ref ResourceManager resManager)
         {
             try
             {
@@ -279,7 +276,7 @@ namespace DLPBits
                     return;
                 }
 
-                if (!ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession))
+                if (!ConnectToDevice(gpibIntAddress, ref resManager, ref gpibSession))
                 {
                     AnsiConsole.MarkupLine("[red]Error: Device not connected. Check GPIB address and device state.[/]");
                     Debug.WriteLine("CreateDLPs: Failed to connect to device");
@@ -368,7 +365,7 @@ namespace DLPBits
             }
         }
 
-        private static void ClearMassMemory(int gpibIntAddress, SemaphoreSlim srqWait, ref ResourceManager resManager, ref GpibSession gpibSession)
+        private static void ClearMassMemory(int gpibIntAddress, ref ResourceManager resManager, ref GpibSession gpibSession)
         {
             try
             {
@@ -381,7 +378,7 @@ namespace DLPBits
                     return;
                 }
 
-                ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession);
+                ConnectToDevice(gpibIntAddress, ref resManager, ref gpibSession);
 
                 if (resManager != null && gpibSession != null)
                 {
@@ -728,7 +725,7 @@ namespace DLPBits
             return response;
         }
 
-        public static void SRQHandler(object sender, Ivi.Visa.VisaEventArgs e, GpibSession gpibSession, SemaphoreSlim srqWait)
+        public static void SRQHandler(object sender, Ivi.Visa.VisaEventArgs e, GpibSession gpibSession)
         {
             try
             {
@@ -740,8 +737,6 @@ namespace DLPBits
                 gpibSession.DiscardEvents(EventType.ServiceRequest);
 
                 SendCommand("*CLS", gpibSession);
-
-                srqWait.Release();
             }
             catch (Exception ex)
             {
