@@ -178,7 +178,7 @@ namespace DLPBits
                 resManager = new NationalInstruments.Visa.ResourceManager();
 
                 // Create a GPIB session for the specified address
-                gpibSession = (GpibSession)resManager.Open(string.Format("GPIB0::{0}::INSTR", gpibIntAddress));
+                gpibSession = (GpibSession)resManager.Open($"GPIB0::{gpibIntAddress}::INSTR");
                 gpibSession.TimeoutMilliseconds = GpibTimeoutMilliseconds; // Set the timeout to be 2s
                 gpibSession.TerminationCharacterEnabled = true;
                 gpibSession.Clear(); // Clear the session
