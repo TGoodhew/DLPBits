@@ -6,20 +6,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Security.Cryptography;
+
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace DLPBits
 {
     internal class Program
     {
-        // General next steps
-        // TODO: Consistent AnsiConsole prompts and messages
-        // TODO: Minimize repeated errors and warnings
-
         // Named constants to replace magic numbers
         private const int DefaultGpibAddress = 18;
         private const int GpibTimeoutMilliseconds = 2000;
@@ -56,7 +50,6 @@ namespace DLPBits
         static void Main(string[] args)
         {
             int gpibIntAddress = DefaultGpibAddress; // This is the default address for the SA
-            SemaphoreSlim srqWait = new SemaphoreSlim(0, 1);
             bool bROMRead = false;
             List<byte[]> extractedParts = null;
             NationalInstruments.Visa.ResourceManager resManager = null;
@@ -97,10 +90,10 @@ namespace DLPBits
                                 // update status for part number
                                 break;
                             case "Clear Mass Memory":
-                                ClearMassMemory(gpibIntAddress, srqWait, ref resManager, ref gpibSession);
+                                ClearMassMemory(gpibIntAddress, ref resManager, ref gpibSession);
                                 break;
                             case "Create DLPs":
-                                CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, ref srqWait);
+                                CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager);
                                 break;
                         }
                     }
@@ -108,15 +101,6 @@ namespace DLPBits
                     {
                         AnsiConsole.MarkupLine($"[red]Unexpected error in operation: {ex.Message}[/]");
                         Debug.WriteLine($"Main Loop Exception Details: {ex}");
-                        Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                        Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                        AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                        
-                        if (ex.InnerException != null)
-                        {
-                            Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                        }
-                        
                         Thread.Sleep(ErrorMessageDelayMilliseconds);
                     }
 
@@ -136,15 +120,6 @@ namespace DLPBits
             {
                 AnsiConsole.MarkupLine($"[red]Critical error in application: {ex.Message}[/]");
                 Debug.WriteLine($"Critical Main Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
-                
                 Thread.Sleep(ErrorMessageDelayMilliseconds);
             }
             finally
@@ -152,11 +127,10 @@ namespace DLPBits
                 // Dispose of resources to prevent resource leaks
                 gpibSession?.Dispose();
                 resManager?.Dispose();
-                srqWait?.Dispose();
             }
         }
 
-        private static bool ConnectToDevice(int gpibIntAddress, ref SemaphoreSlim srqWait, ref ResourceManager resManager, ref GpibSession gpibSession)
+        private static bool ConnectToDevice(int gpibIntAddress, ref ResourceManager resManager, ref GpibSession gpibSession)
         {
             if (resManager != null && gpibSession != null)
             {
@@ -169,14 +143,6 @@ namespace DLPBits
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Dispose During Reconnect Exception Details: {ex}");
-                    Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                    Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                    
-                    if (ex.InnerException != null)
-                    {
-                        Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                    }
-                    
                     AnsiConsole.MarkupLine("[yellow]Warning: Error during disconnect, forcing cleanup...[/]");
                 }
                 finally
@@ -198,13 +164,6 @@ namespace DLPBits
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Dispose Inconsistent State Exception Details: {ex}");
-                    Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                    Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                    
-                    if (ex.InnerException != null)
-                    {
-                        Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                    }
                 }
                 finally
                 {
@@ -225,14 +184,13 @@ namespace DLPBits
                 gpibSession.Clear(); // Clear the session
 
                 var sessionCopy = gpibSession;
-                var srqWaitCopy = srqWait;
-                gpibSession.ServiceRequest += (sender, e) => SRQHandler(sender, e, sessionCopy, srqWaitCopy);
+                gpibSession.ServiceRequest += (sender, e) => SRQHandler(sender, e, sessionCopy);
 
                 var idn = QueryString("ID?", gpibSession);
 
                 if (string.IsNullOrWhiteSpace(idn))
                 {
-                    AnsiConsole.MarkupLine("[Red]Device failed to connect. Check GPIB address and device state.[/]");
+                    AnsiConsole.MarkupLine("[red]Device failed to connect. Check GPIB address and device state.[/]");
                     Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
                     resManager = null;
                     gpibSession = null;
@@ -248,17 +206,8 @@ namespace DLPBits
             }
             catch (Exception ex)
             {
-                AnsiConsole.MarkupLine($"[Red]Device failed to connect. GPIB Error: {ex.Message}[/]");
+                AnsiConsole.MarkupLine($"[red]Device failed to connect. GPIB Error: {ex.Message}[/]");
                 Debug.WriteLine($"ConnectToDevice Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
-                
                 Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
                 resManager = null;
                 gpibSession = null;
@@ -266,24 +215,21 @@ namespace DLPBits
             }
         }
 
-        private static void CreateDLPs(List<byte[]> extractedParts, ref int gpibIntAddress, ref GpibSession gpibSession, ref ResourceManager resManager, ref SemaphoreSlim srqWait)
+        private static void CreateDLPs(List<byte[]> extractedParts, ref int gpibIntAddress, ref GpibSession gpibSession, ref ResourceManager resManager)
         {
             try
             {
                 //check for null or empty
                 if (extractedParts == null || extractedParts.Count == 0)
                 {
-                    AnsiConsole.MarkupLine($"[Red]No parts available to create DLPs. Please read the ROM first.[/]");
+                    AnsiConsole.MarkupLine($"[red]No parts available to create DLPs. Please read the ROM first.[/]");
                     Debug.WriteLine("CreateDLPs: No parts available");
                     Thread.Sleep(UserMessageDelayMilliseconds);
                     return;
                 }
 
-                if (!ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession))
+                if (!ConnectToDevice(gpibIntAddress, ref resManager, ref gpibSession))
                 {
-                    AnsiConsole.MarkupLine("[red]Error: Device not connected. Check GPIB address and device state.[/]");
-                    Debug.WriteLine("CreateDLPs: Failed to connect to device");
-                    Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
                     return;
                 }
 
@@ -337,15 +283,6 @@ namespace DLPBits
                             {
                                 AnsiConsole.MarkupLine($"[red]Error writing DLP part {partCount + 1}: {ex.Message}[/]");
                                 Debug.WriteLine($"Write DLP Part Exception Details: {ex}");
-                                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                                AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                                
-                                if (ex.InnerException != null)
-                                {
-                                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                                }
-                                
                                 break;
                             }
                         }
@@ -355,20 +292,11 @@ namespace DLPBits
             {
                 AnsiConsole.MarkupLine($"[red]Error in CreateDLPs: {ex.Message}[/]");
                 Debug.WriteLine($"CreateDLPs Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
-                
                 Thread.Sleep(UserMessageDelayMilliseconds);
             }
         }
 
-        private static void ClearMassMemory(int gpibIntAddress, SemaphoreSlim srqWait, ref ResourceManager resManager, ref GpibSession gpibSession)
+        private static void ClearMassMemory(int gpibIntAddress, ref ResourceManager resManager, ref GpibSession gpibSession)
         {
             try
             {
@@ -381,34 +309,20 @@ namespace DLPBits
                     return;
                 }
 
-                ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession);
-
-                if (resManager != null && gpibSession != null)
+                if (!ConnectToDevice(gpibIntAddress, ref resManager, ref gpibSession))
                 {
-                    SendCommand("DISPOSE ALL", gpibSession);
-                    AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
-                    Debug.WriteLine("ClearMassMemory: Mass memory successfully cleared");
-                    Thread.Sleep(UserMessageDelayMilliseconds);
                     return;
                 }
 
-                AnsiConsole.MarkupLine("[Red]Error: Device not connected. Check GPIB address and device state.[/]");
-                Debug.WriteLine("ClearMassMemory: Device not connected");
-                Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
+                SendCommand("DISPOSE ALL", gpibSession);
+                AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
+                Debug.WriteLine("ClearMassMemory: Mass memory successfully cleared");
+                Thread.Sleep(UserMessageDelayMilliseconds);
             }
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLine($"[red]Error clearing mass memory: {ex.Message}[/]");
                 Debug.WriteLine($"ClearMassMemory Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
-                
                 Thread.Sleep(UserMessageDelayMilliseconds);
             }
         }
@@ -471,14 +385,6 @@ namespace DLPBits
             {
                 AnsiConsole.MarkupLine($"[red]Error reading file: {ex.Message}[/]");
                 Debug.WriteLine($"ReadSRAMImage Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
             }
 
             AnsiConsole.MarkupLine("[red]ROM image failed to read.[/]");
@@ -515,15 +421,6 @@ namespace DLPBits
             {
                 AnsiConsole.MarkupLine($"[red]Error setting GPIB address: {ex.Message}[/]");
                 Debug.WriteLine($"SetGPIBAddress Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
-                
                 Thread.Sleep(UserMessageDelayMilliseconds);
                 return gpibIntAddress; // Return the original address if error occurs
             }
@@ -575,13 +472,6 @@ namespace DLPBits
             catch (Exception ex)
             {
                 Debug.WriteLine($"ExtractPartsBetweenSequences Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
             }
 
             return parts;
@@ -627,13 +517,6 @@ namespace DLPBits
             catch (Exception ex)
             {
                 Debug.WriteLine($"FindSequence Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
             }
             
             return -1;
@@ -662,14 +545,6 @@ namespace DLPBits
             catch (Exception ex)
             {
                 Debug.WriteLine($"DisplayTitle Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
-                
                 // Don't show error to user for display issues, just log it
             }
         }
@@ -684,14 +559,6 @@ namespace DLPBits
             {
                 AnsiConsole.MarkupLine($"[red]GPIB Send Error: {ex.Message}[/]");
                 Debug.WriteLine($"SendCommand Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
             }
         }
 
@@ -705,15 +572,6 @@ namespace DLPBits
             {
                 AnsiConsole.MarkupLine($"[red]GPIB Read Error: {ex.Message}[/]");
                 Debug.WriteLine($"ReadResponse Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
-                
                 return string.Empty;
             }
         }
@@ -728,7 +586,7 @@ namespace DLPBits
             return response;
         }
 
-        public static void SRQHandler(object sender, Ivi.Visa.VisaEventArgs e, GpibSession gpibSession, SemaphoreSlim srqWait)
+        public static void SRQHandler(object sender, Ivi.Visa.VisaEventArgs e, GpibSession gpibSession)
         {
             try
             {
@@ -740,21 +598,11 @@ namespace DLPBits
                 gpibSession.DiscardEvents(EventType.ServiceRequest);
 
                 SendCommand("*CLS", gpibSession);
-
-                srqWait.Release();
             }
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLine($"[red]SRQ Handler Error: {ex.Message}[/]");
                 Debug.WriteLine($"SRQHandler Exception Details: {ex}");
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                AnsiConsole.MarkupLine($"[red]Error type: {ex.GetType().Name}[/]");
-                
-                if (ex.InnerException != null)
-                {
-                    Debug.WriteLine($"Inner Exception: {ex.InnerException}");
-                }
             }
         }
     }
