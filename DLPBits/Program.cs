@@ -137,10 +137,20 @@ namespace DLPBits
             {
                 // Handle inconsistent state
                 Debug.WriteLine("Warning: Inconsistent resource state detected");
-                resManager?.Dispose();
-                gpibSession?.Dispose();
-                resManager = null;
-                gpibSession = null;
+                try
+                {
+                    resManager?.Dispose();
+                    gpibSession?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error disposing resources in inconsistent state: {ex}");
+                }
+                finally
+                {
+                    resManager = null;
+                    gpibSession = null;
+                }
             }
 
             try
