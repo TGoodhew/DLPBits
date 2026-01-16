@@ -194,7 +194,7 @@ namespace DLPBits
                     int partCount = 0;
 
                     // Define tasks
-                    var task1 = ctx.AddTask("[green]Sending DLP Programs[/]", maxValue: 278);
+                    var task1 = ctx.AddTask("[green]Sending DLP Programs[/]", maxValue: extractedParts.Count);
 
                     while (!ctx.IsFinished && partCount < extractedParts.Count)
                     {
