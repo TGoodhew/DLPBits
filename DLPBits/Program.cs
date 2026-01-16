@@ -67,28 +67,37 @@ namespace DLPBits
 
                 while (TestChoice != "Exit")
                 {
-                    switch (TestChoice)
+                    try
                     {
-                        case "Set GPIB Address":
-                            gpibIntAddress = SetGPIBAddress(gpibIntAddress);
-                            break;
-                        case "Read ROM":
-                            // Get the path to the ROM file
-                            var romFilename = AnsiConsole.Prompt<string>(
-                                new TextPrompt<string>("Enter path to ROM file:")
-                                .DefaultValue(pathToFile)
-                                .Validate(filePath => File.Exists(filePath) ? ValidationResult.Success() : ValidationResult.Error("File does not exist"))
-                            );
-                            // Read the ROM file and extract parts
-                            extractedParts = ReadROM(romFilename, ref bROMRead);
-                            // update status for part number
-                            break;
-                        case "Clear Mass Memory":
-                            ClearMassMemory(gpibIntAddress, srqWait, ref resManager, ref gpibSession);
-                            break;
-                        case "Create DLPs":
-                            CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, ref srqWait);
-                            break;
+                        switch (TestChoice)
+                        {
+                            case "Set GPIB Address":
+                                gpibIntAddress = SetGPIBAddress(gpibIntAddress);
+                                break;
+                            case "Read ROM":
+                                // Get the path to the ROM file
+                                var romFilename = AnsiConsole.Prompt<string>(
+                                    new TextPrompt<string>("Enter path to ROM file:")
+                                    .DefaultValue(pathToFile)
+                                    .Validate(filePath => File.Exists(filePath) ? ValidationResult.Success() : ValidationResult.Error("File does not exist"))
+                                );
+                                // Read the ROM file and extract parts
+                                extractedParts = ReadROM(romFilename, ref bROMRead);
+                                // update status for part number
+                                break;
+                            case "Clear Mass Memory":
+                                ClearMassMemory(gpibIntAddress, srqWait, ref resManager, ref gpibSession);
+                                break;
+                            case "Create DLPs":
+                                CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, ref srqWait);
+                                break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        AnsiConsole.MarkupLine($"[red]Unexpected error in operation: {ex.Message}[/]");
+                        Debug.WriteLine($"Unexpected error in Main loop: {ex}");
+                        Thread.Sleep(2000);
                     }
 
                     // Clear the screen & Display title
@@ -102,6 +111,12 @@ namespace DLPBits
                         .AddChoices(new[] { "Set GPIB Address", "Read ROM", "Clear Mass Memory", "Create DLPs", "Exit" })
                         );
                 }
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.MarkupLine($"[red]Critical error in application: {ex.Message}[/]");
+                Debug.WriteLine($"Critical error in Main: {ex}");
+                Thread.Sleep(2000);
             }
             finally
             {
@@ -199,90 +214,122 @@ namespace DLPBits
 
         private static void CreateDLPs(List<byte[]> extractedParts, ref int gpibIntAddress, ref GpibSession gpibSession, ref ResourceManager resManager, ref SemaphoreSlim srqWait)
         {
-            //check for null or empty
-            if (extractedParts == null || extractedParts.Count == 0)
+            try
             {
-                AnsiConsole.MarkupLine($"[Red]No parts available to create DLPs. Please read the ROM first.[/]");
-                Thread.Sleep(1000);
-                return;
-            }
-
-            if (!ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession))
-            {
-                AnsiConsole.MarkupLine("[red]Error: Device not connected. Check GPIB address and device state.[/]");
-                Thread.Sleep(1000); // Pause for a moment to let the user see the message
-                return;
-            }
-
-            // Use a local variable to avoid using ref parameter in lambda
-            var localGpibSession = gpibSession;
-
-            AnsiConsole.Progress()
-                .Start(ctx =>
+                //check for null or empty
+                if (extractedParts == null || extractedParts.Count == 0)
                 {
-                    Debug.WriteLine($"Starting to write DLPs");
+                    AnsiConsole.MarkupLine($"[Red]No parts available to create DLPs. Please read the ROM first.[/]");
+                    Debug.WriteLine("CreateDLPs: No parts available");
+                    Thread.Sleep(1000);
+                    return;
+                }
 
-                    int partCount = 0;
+                if (!ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession))
+                {
+                    AnsiConsole.MarkupLine("[red]Error: Device not connected. Check GPIB address and device state.[/]");
+                    Debug.WriteLine("CreateDLPs: Failed to connect to device");
+                    Thread.Sleep(1000); // Pause for a moment to let the user see the message
+                    return;
+                }
 
-                    // Define tasks
-                    var task1 = ctx.AddTask("[green]Sending DLP Programs[/]", maxValue: extractedParts.Count);
+                // Use a local variable to avoid using ref parameter in lambda
+                var localGpibSession = gpibSession;
 
-                    while (!ctx.IsFinished && partCount < extractedParts.Count)
+                AnsiConsole.Progress()
+                    .Start(ctx =>
                     {
-                        Debug.WriteLine($"Part {partCount + 1}: {extractedParts[partCount].Length} bytes");
+                        Debug.WriteLine($"Starting to write DLPs");
 
-                        // Convert the byte array to a string using UTF-8 encoding
-                        string partString = Encoding.UTF8.GetString(extractedParts[partCount]);
-                        Debug.WriteLine("FUNCDEF " + partString + ";");
+                        int partCount = 0;
 
-                        localGpibSession.FormattedIO.WriteLine("FUNCDEF " + partString + ";");
+                        // Define tasks
+                        var task1 = ctx.AddTask("[green]Sending DLP Programs[/]", maxValue: extractedParts.Count);
 
-                        var errorResponse = QueryString("ERR?", localGpibSession);
-                        if (!int.TryParse(errorResponse, NumberStyles.Integer, CultureInfo.InvariantCulture, out var errorResult))
+                        while (!ctx.IsFinished && partCount < extractedParts.Count)
                         {
-                            AnsiConsole.MarkupLine($"[red]Failed to parse error response: '{errorResponse}'[/]");
-                            Debug.WriteLine($"Failed to parse error response: '{errorResponse}'");
-                            break;
+                            try
+                            {
+                                Debug.WriteLine($"Part {partCount + 1}: {extractedParts[partCount].Length} bytes");
+
+                                // Convert the byte array to a string using UTF-8 encoding
+                                string partString = Encoding.UTF8.GetString(extractedParts[partCount]);
+                                Debug.WriteLine("FUNCDEF " + partString + ";");
+
+                                localGpibSession.FormattedIO.WriteLine("FUNCDEF " + partString + ";");
+
+                                var errorResponse = QueryString("ERR?", localGpibSession);
+                                if (!int.TryParse(errorResponse, NumberStyles.Integer, CultureInfo.InvariantCulture, out var errorResult))
+                                {
+                                    AnsiConsole.MarkupLine($"[red]Failed to parse error response: '{errorResponse}'[/]");
+                                    Debug.WriteLine($"Failed to parse error response: '{errorResponse}'");
+                                    break;
+                                }
+
+                                if (errorResult != 0)
+                                {
+                                    AnsiConsole.MarkupLine($"[red]Error writing DLP part {partCount + 1}: Error Code {errorResult}[/]");
+                                    Debug.WriteLine($"Error writing DLP part {partCount + 1}: Error Code {errorResult}");
+                                    break;
+                                }
+
+                                partCount++;
+
+                                Debug.WriteLine($"Completed {partCount} of {extractedParts.Count} parts.");
+
+                                task1.Increment(1);
+                            }
+                            catch (Exception ex)
+                            {
+                                AnsiConsole.MarkupLine($"[red]Error writing DLP part {partCount + 1}: {ex.Message}[/]");
+                                Debug.WriteLine($"Error writing DLP part {partCount + 1}: {ex}");
+                                break;
+                            }
                         }
-
-                        if (errorResult != 0)
-                        {
-                            AnsiConsole.MarkupLine($"[red]Error writing DLP part {partCount + 1}: Error Code {errorResult}[/]");
-                            Debug.WriteLine($"Error writing DLP part {partCount + 1}: Error Code {errorResult}");
-                            break;
-                        }
-
-                        partCount++;
-
-                        Debug.WriteLine($"Completed {partCount} of {extractedParts.Count} parts.");
-
-                        task1.Increment(1);
-                    }
-                });
+                    });
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.MarkupLine($"[red]Error in CreateDLPs: {ex.Message}[/]");
+                Debug.WriteLine($"Error in CreateDLPs: {ex}");
+                Thread.Sleep(1000);
+            }
         }
 
         private static void ClearMassMemory(int gpibIntAddress, SemaphoreSlim srqWait, ref ResourceManager resManager, ref GpibSession gpibSession)
         {
-            var confirm = AnsiConsole.Confirm("Are you sure you want to clear mass memory? This action cannot be undone.", false);
-            if (!confirm)
+            try
             {
-                AnsiConsole.MarkupLine("[yellow]Mass memory clear cancelled.[/]");
-                Thread.Sleep(1000);
-                return;
+                var confirm = AnsiConsole.Confirm("Are you sure you want to clear mass memory? This action cannot be undone.", false);
+                if (!confirm)
+                {
+                    AnsiConsole.MarkupLine("[yellow]Mass memory clear cancelled.[/]");
+                    Debug.WriteLine("ClearMassMemory: Operation cancelled by user");
+                    Thread.Sleep(1000);
+                    return;
+                }
+
+                ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession);
+
+                if (resManager != null && gpibSession != null)
+                {
+                    SendCommand("DISPOSE ALL", gpibSession);
+                    AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
+                    Debug.WriteLine("ClearMassMemory: Mass memory successfully cleared");
+                    Thread.Sleep(1000);
+                    return;
+                }
+
+                AnsiConsole.MarkupLine("[Red]Error: Device not connected. Check GPIB address and device state.[/]");
+                Debug.WriteLine("ClearMassMemory: Device not connected");
+                Thread.Sleep(1000); // Pause for a moment to let the user see the message
             }
-
-            ConnectToDevice(gpibIntAddress, ref srqWait, ref resManager, ref gpibSession);
-
-            if (resManager != null && gpibSession != null)
+            catch (Exception ex)
             {
-                SendCommand("DISPOSE ALL", gpibSession);
-                AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
+                AnsiConsole.MarkupLine($"[red]Error clearing mass memory: {ex.Message}[/]");
+                Debug.WriteLine($"Error in ClearMassMemory: {ex}");
                 Thread.Sleep(1000);
-                return;
             }
-
-            AnsiConsole.MarkupLine("[Red]Error: Device not connected. Check GPIB address and device state.[/]");
-            Thread.Sleep(1000); // Pause for a moment to let the user see the message
         }
 
         private static List<byte[]> ReadROM(string pathToFile, ref bool bROMRead)
@@ -292,7 +339,7 @@ namespace DLPBits
             try
             {
                 fileBytes = File.ReadAllBytes(pathToFile);
-                Console.WriteLine($"Read {fileBytes.Length} bytes from file.");
+                Debug.WriteLine($"Read {fileBytes.Length} bytes from file: {pathToFile}");
 
                 // Translate the Mass Memory Module RAM dump image
                 // Again, thanks to Kirril for providing the translation algorithm.
@@ -330,7 +377,7 @@ namespace DLPBits
 
                 List<byte[]> extractedParts = ExtractPartsBetweenSequences(translatedBytes.ToArray(), startSequence, endSequence);
 
-                Console.WriteLine($"Found {extractedParts.Count} part(s) between the specified byte sequences.");
+                Debug.WriteLine($"Found {extractedParts.Count} part(s) between the specified byte sequences.");
 
                 bROMRead = true;
 
@@ -341,7 +388,8 @@ namespace DLPBits
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error reading file: {ex.Message}");
+                AnsiConsole.MarkupLine($"[red]Error reading file: {ex.Message}[/]");
+                Debug.WriteLine($"Error reading ROM file: {ex}");
             }
 
             AnsiConsole.MarkupLine("[red]ROM image failed to read.[/]");
@@ -353,42 +401,76 @@ namespace DLPBits
 
         private static int SetGPIBAddress(int gpibIntAddress)
         {
-            // Prompt for the SA GPIB Address
-            gpibIntAddress = AnsiConsole.Prompt(
-                new TextPrompt<int>("Enter spectrum analyzer GPIB address (Default is 18)?")
-                .DefaultValue(18)
-                .Validate(n => n >= 1 && n <= 30 ? ValidationResult.Success() : ValidationResult.Error("Address must be between 1 and 30"))
-                );
+            try
+            {
+                // Prompt for the SA GPIB Address
+                gpibIntAddress = AnsiConsole.Prompt(
+                    new TextPrompt<int>("Enter spectrum analyzer GPIB address (Default is 18)?")
+                    .DefaultValue(18)
+                    .Validate(n => n >= 1 && n <= 30 ? ValidationResult.Success() : ValidationResult.Error("Address must be between 1 and 30"))
+                    );
 
-            AnsiConsole.MarkupLine("[green]GPIB Address updated.[/]");
-            Thread.Sleep(1000); // Pause for a moment to let the user see the message
+                AnsiConsole.MarkupLine("[green]GPIB Address updated.[/]");
+                Debug.WriteLine($"SetGPIBAddress: GPIB address set to {gpibIntAddress}");
+                Thread.Sleep(1000); // Pause for a moment to let the user see the message
 
-            return gpibIntAddress;
+                return gpibIntAddress;
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.MarkupLine($"[red]Error setting GPIB address: {ex.Message}[/]");
+                Debug.WriteLine($"Error in SetGPIBAddress: {ex}");
+                Thread.Sleep(1000);
+                return gpibIntAddress; // Return the original address if error occurs
+            }
         }
 
         // Extracts all byte segments between startSequence and endSequence (exclusive)
         static List<byte[]> ExtractPartsBetweenSequences(byte[] data, byte[] startSequence, byte[] endSequence)
         {
             var parts = new List<byte[]>();
-            int index = 0;
-
-            while (index < data.Length)
+            
+            try
             {
-                int start = FindSequence(data, startSequence, index);
-                if (start == -1) break;
-                start += startSequence.Length;
-
-                int end = FindSequence(data, endSequence, start);
-                if (end == -1) break;
-
-                int length = end - start;
-                if (length > 0)
+                if (data == null || data.Length == 0)
                 {
-                    byte[] part = new byte[length];
-                    Array.Copy(data, start, part, 0, length);
-                    parts.Add(part);
+                    Debug.WriteLine("ExtractPartsBetweenSequences: Input data is null or empty");
+                    return parts;
                 }
-                index = end + endSequence.Length;
+
+                if (startSequence == null || endSequence == null)
+                {
+                    Debug.WriteLine("ExtractPartsBetweenSequences: Start or end sequence is null");
+                    return parts;
+                }
+
+                int index = 0;
+
+                while (index < data.Length)
+                {
+                    int start = FindSequence(data, startSequence, index);
+                    if (start == -1) break;
+                    start += startSequence.Length;
+
+                    int end = FindSequence(data, endSequence, start);
+                    if (end == -1) break;
+
+                    int length = end - start;
+                    if (length > 0)
+                    {
+                        byte[] part = new byte[length];
+                        Array.Copy(data, start, part, 0, length);
+                        parts.Add(part);
+                        Debug.WriteLine($"ExtractPartsBetweenSequences: Extracted part of {length} bytes");
+                    }
+                    index = end + endSequence.Length;
+                }
+
+                Debug.WriteLine($"ExtractPartsBetweenSequences: Total parts extracted: {parts.Count}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in ExtractPartsBetweenSequences: {ex}");
             }
 
             return parts;
@@ -397,39 +479,73 @@ namespace DLPBits
         // Finds the index of the first occurrence of the sequence in data starting from startIndex
         static int FindSequence(byte[] data, byte[] sequence, int startIndex)
         {
-            for (int i = startIndex; i <= data.Length - sequence.Length; i++)
+            try
             {
-                bool match = true;
-                for (int j = 0; j < sequence.Length; j++)
+                if (data == null || sequence == null)
                 {
-                    if (data[i + j] != sequence[j])
-                    {
-                        match = false;
-                        break;
-                    }
+                    Debug.WriteLine("FindSequence: Data or sequence is null");
+                    return -1;
                 }
-                if (match) return i;
+
+                if (sequence.Length == 0)
+                {
+                    Debug.WriteLine("FindSequence: Sequence is empty");
+                    return -1;
+                }
+
+                if (startIndex < 0 || startIndex >= data.Length)
+                {
+                    Debug.WriteLine($"FindSequence: Invalid start index {startIndex} for data length {data.Length}");
+                    return -1;
+                }
+
+                for (int i = startIndex; i <= data.Length - sequence.Length; i++)
+                {
+                    bool match = true;
+                    for (int j = 0; j < sequence.Length; j++)
+                    {
+                        if (data[i + j] != sequence[j])
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match) return i;
+                }
             }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in FindSequence: {ex}");
+            }
+            
             return -1;
         }
 
         private static void DisplayTitle(int gpibIntAddress, bool bROMRead, List<byte[]> extractedParts)
         {
-            // Clear screen and display header
-            AnsiConsole.Clear();
-            AnsiConsole.Write(
-                new FigletText("DLPBits")
-                    .LeftJustified()
-                    .Color(Color.Green));
-            AnsiConsole.WriteLine("--------------------------------------------------");
-            AnsiConsole.WriteLine("");
-            AnsiConsole.WriteLine("DLPBits - DLP Creator for the HP 85671A and 85672A utilities");
-            AnsiConsole.WriteLine("");
-            AnsiConsole.WriteLine("GPIB Address: " + gpibIntAddress);
-            AnsiConsole.WriteLine("");
-            string partCountString = (extractedParts != null && extractedParts.Count > 0) ? ", Parts: " + extractedParts.Count.ToString() : "";
-            AnsiConsole.WriteLine("ROM Read: " + bROMRead.ToString() + partCountString);
-            AnsiConsole.WriteLine("");
+            try
+            {
+                // Clear screen and display header
+                AnsiConsole.Clear();
+                AnsiConsole.Write(
+                    new FigletText("DLPBits")
+                        .LeftJustified()
+                        .Color(Color.Green));
+                AnsiConsole.WriteLine("--------------------------------------------------");
+                AnsiConsole.WriteLine("");
+                AnsiConsole.WriteLine("DLPBits - DLP Creator for the HP 85671A and 85672A utilities");
+                AnsiConsole.WriteLine("");
+                AnsiConsole.WriteLine("GPIB Address: " + gpibIntAddress);
+                AnsiConsole.WriteLine("");
+                string partCountString = (extractedParts != null && extractedParts.Count > 0) ? ", Parts: " + extractedParts.Count.ToString() : "";
+                AnsiConsole.WriteLine("ROM Read: " + bROMRead.ToString() + partCountString);
+                AnsiConsole.WriteLine("");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in DisplayTitle: {ex}");
+                // Don't show error to user for display issues, just log it
+            }
         }
 
         static private void SendCommand(string command, GpibSession gpibSession)
