@@ -139,8 +139,8 @@ namespace DLPBits
                 Debug.WriteLine("Warning: Inconsistent resource state detected");
                 try
                 {
-                    resManager?.Dispose();
                     gpibSession?.Dispose();
+                    resManager?.Dispose();
                 }
                 catch (Exception ex)
                 {
