@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("DLPBits")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("[assembly: AssemblyDescription(\"Console application to program HP 8560E Spectrum Analyzer with DLPs from SDRAM dump image\")]")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("The Schnauzer Group")]
 [assembly: AssemblyProduct("DLPBits")]
-[assembly: AssemblyCopyright("Copyright ©  2025")]
+[assembly: AssemblyCopyright("Copyright © Tony@schnauzedrgroup.com 2025")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
