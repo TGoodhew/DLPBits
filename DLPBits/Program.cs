@@ -55,17 +55,19 @@ namespace DLPBits
             NationalInstruments.Visa.ResourceManager resManager = null;
             GpibSession gpibSession = null;
             CancellationTokenSource cts = new CancellationTokenSource();
+            ConsoleCancelEventHandler cancelHandler = null;
 
             string pathToFile = @"SRAM_85620A.bin"; // From the KO4BB image here - https://www.ko4bb.com/getsimple/index.php?id=manuals&dir=HP_Agilent_Keysight/HP_85620A
 
             // Set up Ctrl+C handler for graceful cancellation
-            Console.CancelKeyPress += (sender, e) =>
+            cancelHandler = (sender, e) =>
             {
                 e.Cancel = true; // Prevent immediate termination
                 AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
                 Debug.WriteLine("Cancellation requested via Ctrl+C");
                 cts.Cancel();
             };
+            Console.CancelKeyPress += cancelHandler;
 
             try
             {
@@ -98,15 +100,16 @@ namespace DLPBits
                                 // Reset cancellation token if it was cancelled before
                                 if (cts.IsCancellationRequested)
                                 {
+                                    Console.CancelKeyPress -= cancelHandler;
                                     cts = new CancellationTokenSource();
-                                    // Re-register the Ctrl+C handler
-                                    Console.CancelKeyPress += (sender, e) =>
+                                    cancelHandler = (sender, e) =>
                                     {
                                         e.Cancel = true;
                                         AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
                                         Debug.WriteLine("Cancellation requested via Ctrl+C");
                                         cts.Cancel();
                                     };
+                                    Console.CancelKeyPress += cancelHandler;
                                 }
                                 AnsiConsole.MarkupLine("[dim]Press Ctrl+C to cancel the operation[/]");
                                 // Read the ROM file and extract parts
@@ -120,15 +123,16 @@ namespace DLPBits
                                 // Reset cancellation token if it was cancelled before
                                 if (cts.IsCancellationRequested)
                                 {
+                                    Console.CancelKeyPress -= cancelHandler;
                                     cts = new CancellationTokenSource();
-                                    // Re-register the Ctrl+C handler
-                                    Console.CancelKeyPress += (sender, e) =>
+                                    cancelHandler = (sender, e) =>
                                     {
                                         e.Cancel = true;
                                         AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
                                         Debug.WriteLine("Cancellation requested via Ctrl+C");
                                         cts.Cancel();
                                     };
+                                    Console.CancelKeyPress += cancelHandler;
                                 }
                                 AnsiConsole.MarkupLine("[dim]Press Ctrl+C to cancel the operation[/]");
                                 CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, cts.Token);
