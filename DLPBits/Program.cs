@@ -326,6 +326,48 @@ namespace DLPBits
                         }
                     });
             }
+            catch (OperationCanceledException)
+            {
+                // Warn user about potential unknown state
+                AnsiConsole.MarkupLine("[yellow]DLP creation cancelled.[/]");
+                AnsiConsole.MarkupLine("[yellow]Warning: The Spectrum Analyzer may be in an unknown state.[/]");
+                Debug.WriteLine("CreateDLPs: Operation cancelled by user");
+                
+                // Give user options for how to proceed
+                var choice = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("What would you like to do?")
+                        .AddChoices(new[] { 
+                            "Clear mass memory to reset state", 
+                            "Leave memory as-is and return to menu"
+                        })
+                );
+
+                if (choice == "Clear mass memory to reset state")
+                {
+                    AnsiConsole.MarkupLine("[yellow]Clearing mass memory...[/]");
+                    Debug.WriteLine("CreateDLPs: User chose to clear memory after cancellation");
+                    try
+                    {
+                        SendCommand("DISPOSE ALL", gpibSession);
+                        AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
+                        Debug.WriteLine("CreateDLPs: Mass memory cleared after cancellation");
+                    }
+                    catch (Exception ex)
+                    {
+                        AnsiConsole.MarkupLine($"[red]Error clearing mass memory: {ex.Message}[/]");
+                        Debug.WriteLine($"CreateDLPs Clear Memory Exception Details: {ex}");
+                    }
+                }
+                else
+                {
+                    AnsiConsole.MarkupLine("[yellow]Returning to menu. Memory state unchanged.[/]");
+                    Debug.WriteLine("CreateDLPs: User chose to leave memory as-is after cancellation");
+                }
+                
+                Thread.Sleep(UserMessageDelayMilliseconds);
+                throw; // Re-throw to be handled by the main loop
+            }
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLine($"[red]Error in CreateDLPs: {ex.Message}[/]");
