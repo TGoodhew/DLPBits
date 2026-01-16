@@ -392,7 +392,7 @@ namespace DLPBits
 
                 bROMRead = true;
 
-                AnsiConsole.MarkupLine("[green]ROM image read.[/]");
+                AnsiConsole.MarkupLine("[green]SRAM image read.[/]");
                 Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
 
                 return extractedParts;
