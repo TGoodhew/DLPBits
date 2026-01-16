@@ -54,8 +54,18 @@ namespace DLPBits
             List<byte[]> extractedParts = null;
             NationalInstruments.Visa.ResourceManager resManager = null;
             GpibSession gpibSession = null;
+            CancellationTokenSource cts = new CancellationTokenSource();
 
             string pathToFile = @"SRAM_85620A.bin"; // From the KO4BB image here - https://www.ko4bb.com/getsimple/index.php?id=manuals&dir=HP_Agilent_Keysight/HP_85620A
+
+            // Set up Ctrl+C handler for graceful cancellation
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                e.Cancel = true; // Prevent immediate termination
+                AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
+                Debug.WriteLine("Cancellation requested via Ctrl+C");
+                cts.Cancel();
+            };
 
             try
             {
@@ -85,17 +95,29 @@ namespace DLPBits
                                     .DefaultValue(pathToFile)
                                     .Validate(filePath => File.Exists(filePath) ? ValidationResult.Success() : ValidationResult.Error("File does not exist"))
                                 );
+                                // Create a new CancellationTokenSource for this operation
+                                cts = new CancellationTokenSource();
+                                AnsiConsole.MarkupLine("[dim]Press Ctrl+C to cancel the operation[/]");
                                 // Read the ROM file and extract parts
-                                extractedParts = ReadSRAMImage(romFilename, ref bROMRead);
+                                extractedParts = ReadSRAMImage(romFilename, ref bROMRead, cts.Token);
                                 // update status for part number
                                 break;
                             case "Clear Mass Memory":
                                 ClearMassMemory(gpibIntAddress, ref resManager, ref gpibSession);
                                 break;
                             case "Create DLPs":
-                                CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager);
+                                // Create a new CancellationTokenSource for this operation
+                                cts = new CancellationTokenSource();
+                                AnsiConsole.MarkupLine("[dim]Press Ctrl+C to cancel the operation[/]");
+                                CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, cts.Token);
                                 break;
                         }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        AnsiConsole.MarkupLine("[yellow]Operation cancelled by user.[/]");
+                        Debug.WriteLine("Operation cancelled by user");
+                        Thread.Sleep(UserMessageDelayMilliseconds);
                     }
                     catch (Exception ex)
                     {
@@ -215,7 +237,7 @@ namespace DLPBits
             }
         }
 
-        private static void CreateDLPs(List<byte[]> extractedParts, ref int gpibIntAddress, ref GpibSession gpibSession, ref ResourceManager resManager)
+        private static void CreateDLPs(List<byte[]> extractedParts, ref int gpibIntAddress, ref GpibSession gpibSession, ref ResourceManager resManager, CancellationToken cancellationToken)
         {
             try
             {
@@ -248,6 +270,9 @@ namespace DLPBits
 
                         while (!ctx.IsFinished && partCount < extractedParts.Count)
                         {
+                            // Check for cancellation
+                            cancellationToken.ThrowIfCancellationRequested();
+
                             try
                             {
                                 Debug.WriteLine($"Part {partCount + 1}: {extractedParts[partCount].Length} bytes");
@@ -327,7 +352,7 @@ namespace DLPBits
             }
         }
 
-        private static List<byte[]> ReadSRAMImage(string pathToFile, ref bool bROMRead)
+        private static List<byte[]> ReadSRAMImage(string pathToFile, ref bool bROMRead, CancellationToken cancellationToken)
         {
             byte[] fileBytes = null;
 
@@ -341,6 +366,12 @@ namespace DLPBits
                 var translatedBytes = new List<byte>();
                 for (int p = 0; p < fileBytes.Length; p++)
                 {
+                    // Check for cancellation every 1000 iterations for better responsiveness
+                    if (p % 1000 == 0)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+
                     int translatedAddress = AddrXlat(p);
                     
                     if (translatedAddress < 0 || translatedAddress >= fileBytes.Length)
