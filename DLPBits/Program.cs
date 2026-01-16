@@ -4,6 +4,7 @@ using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -237,7 +238,7 @@ namespace DLPBits
                         localGpibSession.FormattedIO.WriteLine("FUNCDEF " + partString + ";");
 
                         var errorResponse = QueryString("ERR?", localGpibSession);
-                        if (!int.TryParse(errorResponse, out var errorResult))
+                        if (!int.TryParse(errorResponse, NumberStyles.Integer, CultureInfo.InvariantCulture, out var errorResult))
                         {
                             AnsiConsole.MarkupLine($"[red]Failed to parse error response: '{errorResponse}'[/]");
                             Debug.WriteLine($"Failed to parse error response: '{errorResponse}'");
