@@ -62,18 +62,18 @@ namespace DLPBits
                 DisplayTitle(gpibIntAddress, bROMRead, extractedParts);
 
                 // Ask for test choice
-                var TestChoice = AnsiConsole.Prompt(
+                var testChoice = AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
                         .Title("Select the test to run?")
                         .PageSize(10)
                         .AddChoices(new[] { "Set GPIB Address", "Read SRAM Image File", "Clear Mass Memory", "Create DLPs", "Exit" })
                         );
 
-                while (TestChoice != "Exit")
+                while (testChoice != "Exit")
                 {
                     try
                     {
-                        switch (TestChoice)
+                        switch (testChoice)
                         {
                             case "Set GPIB Address":
                                 gpibIntAddress = SetGPIBAddress(gpibIntAddress);
@@ -108,7 +108,7 @@ namespace DLPBits
                     DisplayTitle(gpibIntAddress, bROMRead, extractedParts);
 
                     // Ask for test choice
-                    TestChoice = AnsiConsole.Prompt(
+                    testChoice = AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
                         .Title("Select the test to run?")
                         .PageSize(10)
