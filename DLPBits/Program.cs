@@ -91,19 +91,7 @@ namespace DLPBits
                                     .Validate(filePath => File.Exists(filePath) ? ValidationResult.Success() : ValidationResult.Error("File does not exist"))
                                 );
                                 // Reset cancellation token if it was cancelled before
-                                if (cts.IsCancellationRequested)
-                                {
-                                    Console.CancelKeyPress -= cancelHandler;
-                                    cts = new CancellationTokenSource();
-                                    cancelHandler = (sender, e) =>
-                                    {
-                                        e.Cancel = true;
-                                        AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
-                                        Debug.WriteLine("Cancellation requested via Ctrl+C");
-                                        cts.Cancel();
-                                    };
-                                    Console.CancelKeyPress += cancelHandler;
-                                }
+                                ResetCancellationTokenIfNeeded(ref cts, ref cancelHandler);
                                 AnsiConsole.MarkupLine("[dim]Press Ctrl+C to cancel the operation[/]");
                                 // Read the ROM file and extract parts
                                 extractedParts = ReadSRAMImage(romFilename, ref bROMRead, cts.Token);
@@ -114,19 +102,7 @@ namespace DLPBits
                                 break;
                             case "Create DLPs":
                                 // Reset cancellation token if it was cancelled before
-                                if (cts.IsCancellationRequested)
-                                {
-                                    Console.CancelKeyPress -= cancelHandler;
-                                    cts = new CancellationTokenSource();
-                                    cancelHandler = (sender, e) =>
-                                    {
-                                        e.Cancel = true;
-                                        AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
-                                        Debug.WriteLine("Cancellation requested via Ctrl+C");
-                                        cts.Cancel();
-                                    };
-                                    Console.CancelKeyPress += cancelHandler;
-                                }
+                                ResetCancellationTokenIfNeeded(ref cts, ref cancelHandler);
                                 AnsiConsole.MarkupLine("[dim]Press Ctrl+C to cancel the operation[/]");
                                 CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, cts.Token);
                                 break;
@@ -159,8 +135,32 @@ namespace DLPBits
             finally
             {
                 // Dispose of resources to prevent resource leaks
+                if (cancelHandler != null)
+                {
+                    Console.CancelKeyPress -= cancelHandler;
+                }
+                cts?.Dispose();
                 gpibSession?.Dispose();
                 resManager?.Dispose();
+            }
+        }
+
+        // Helper method to reset cancellation token if needed
+        private static void ResetCancellationTokenIfNeeded(ref CancellationTokenSource cts, ref ConsoleCancelEventHandler cancelHandler)
+        {
+            if (cts.IsCancellationRequested)
+            {
+                Console.CancelKeyPress -= cancelHandler;
+                cts.Dispose();
+                cts = new CancellationTokenSource();
+                cancelHandler = (sender, e) =>
+                {
+                    e.Cancel = true;
+                    AnsiConsole.MarkupLine("[yellow]Cancellation requested. Stopping operation...[/]");
+                    Debug.WriteLine("Cancellation requested via Ctrl+C");
+                    cts.Cancel();
+                };
+                Console.CancelKeyPress += cancelHandler;
             }
         }
 
