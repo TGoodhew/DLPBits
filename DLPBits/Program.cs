@@ -236,7 +236,13 @@ namespace DLPBits
 
                         localGpibSession.FormattedIO.WriteLine("FUNCDEF " + partString + ";");
 
-                        var errorResult = Convert.ToInt32(QueryString("ERR?", localGpibSession));
+                        var errorResponse = QueryString("ERR?", localGpibSession);
+                        if (!int.TryParse(errorResponse, out var errorResult))
+                        {
+                            AnsiConsole.MarkupLine($"[red]Failed to parse error response: '{errorResponse}'[/]");
+                            Debug.WriteLine($"Failed to parse error response: '{errorResponse}'");
+                            break;
+                        }
 
                         if (errorResult != 0)
                         {
