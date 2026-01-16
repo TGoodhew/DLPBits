@@ -52,52 +52,62 @@ namespace DLPBits
 
             string pathToFile = @"SRAM_85620A.bin"; // From the KO4BB image here - https://www.ko4bb.com/getsimple/index.php?id=manuals&dir=HP_Agilent_Keysight/HP_85620A
 
-            DisplayeTitle(gpibIntAddress, bROMRead, extractedParts);
-
-            // Ask for test choice
-            var TestChoice = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                    .Title("Select the test to run?")
-                    .PageSize(10)
-                    .AddChoices(new[] { "Set GPIB Address", "Read ROM", "Clear Mass Memory", "Create DLPs", "Exit" })
-                    );
-
-            while (TestChoice != "Exit")
+            try
             {
-                switch (TestChoice)
-                {
-                    case "Set GPIB Address":
-                        gpibIntAddress = SetGPIBAddress(gpibIntAddress);
-                        break;
-                    case "Read ROM":
-                        // Get the path to the ROM file
-                        var romFilename = AnsiConsole.Prompt<string>(
-                            new TextPrompt<string>("Enter path to ROM file:")
-                            .DefaultValue(pathToFile)
-                            .Validate(filePath => File.Exists(filePath) ? ValidationResult.Success() : ValidationResult.Error("File does not exist"))
-                        );
-                        // Read the ROM file and extract parts
-                        extractedParts = ReadROM(romFilename, ref bROMRead);
-                        // update status for part number
-                        break;
-                    case "Clear Mass Memory":
-                        ClearMassMemory(gpibIntAddress, srqWait, ref resManager, ref gpibSession);
-                        break;
-                    case "Create DLPs":
-                        CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, ref srqWait);
-                        break;
-                }
-
-                // Clear the screen & Display title
                 DisplayeTitle(gpibIntAddress, bROMRead, extractedParts);
 
                 // Ask for test choice
-                TestChoice = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                    .Title("Select the test to run?")
-                    .PageSize(10)
-                    .AddChoices(new[] { "Set GPIB Address", "Read ROM", "Clear Mass Memory", "Create DLPs", "Exit" })
-                    );
+                var TestChoice = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("Select the test to run?")
+                        .PageSize(10)
+                        .AddChoices(new[] { "Set GPIB Address", "Read ROM", "Clear Mass Memory", "Create DLPs", "Exit" })
+                        );
+
+                while (TestChoice != "Exit")
+                {
+                    switch (TestChoice)
+                    {
+                        case "Set GPIB Address":
+                            gpibIntAddress = SetGPIBAddress(gpibIntAddress);
+                            break;
+                        case "Read ROM":
+                            // Get the path to the ROM file
+                            var romFilename = AnsiConsole.Prompt<string>(
+                                new TextPrompt<string>("Enter path to ROM file:")
+                                .DefaultValue(pathToFile)
+                                .Validate(filePath => File.Exists(filePath) ? ValidationResult.Success() : ValidationResult.Error("File does not exist"))
+                            );
+                            // Read the ROM file and extract parts
+                            extractedParts = ReadROM(romFilename, ref bROMRead);
+                            // update status for part number
+                            break;
+                        case "Clear Mass Memory":
+                            ClearMassMemory(gpibIntAddress, srqWait, ref resManager, ref gpibSession);
+                            break;
+                        case "Create DLPs":
+                            CreateDLPs(extractedParts, ref gpibIntAddress, ref gpibSession, ref resManager, ref srqWait);
+                            break;
+                    }
+
+                    // Clear the screen & Display title
+                    DisplayeTitle(gpibIntAddress, bROMRead, extractedParts);
+
+                    // Ask for test choice
+                    TestChoice = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("Select the test to run?")
+                        .PageSize(10)
+                        .AddChoices(new[] { "Set GPIB Address", "Read ROM", "Clear Mass Memory", "Create DLPs", "Exit" })
+                        );
+                }
+            }
+            finally
+            {
+                // Dispose of resources to prevent resource leaks
+                gpibSession?.Dispose();
+                resManager?.Dispose();
+                srqWait?.Dispose();
             }
         }
 
