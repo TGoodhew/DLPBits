@@ -73,7 +73,7 @@ namespace DLPBits
                     new SelectionPrompt<string>()
                         .Title("Select the test to run?")
                         .PageSize(10)
-                        .AddChoices(new[] { "Set GPIB Address", "Read ROM", "Clear Mass Memory", "Create DLPs", "Exit" })
+                        .AddChoices(new[] { "Set GPIB Address", "Read SRAM Image File", "Clear Mass Memory", "Create DLPs", "Exit" })
                         );
 
                 while (TestChoice != "Exit")
@@ -85,7 +85,7 @@ namespace DLPBits
                             case "Set GPIB Address":
                                 gpibIntAddress = SetGPIBAddress(gpibIntAddress);
                                 break;
-                            case "Read ROM":
+                            case "Read SRAM Image File":
                                 // Get the path to the ROM file
                                 var romFilename = AnsiConsole.Prompt<string>(
                                     new TextPrompt<string>("Enter path to ROM file:")
@@ -119,7 +119,7 @@ namespace DLPBits
                     new SelectionPrompt<string>()
                         .Title("Select the test to run?")
                         .PageSize(10)
-                        .AddChoices(new[] { "Set GPIB Address", "Read ROM", "Clear Mass Memory", "Create DLPs", "Exit" })
+                        .AddChoices(new[] { "Set GPIB Address", "Read SRAM Image File", "Clear Mass Memory", "Create DLPs", "Exit" })
                         );
                 }
             }
