@@ -93,7 +93,7 @@ namespace DLPBits
                                     .Validate(filePath => File.Exists(filePath) ? ValidationResult.Success() : ValidationResult.Error("File does not exist"))
                                 );
                                 // Read the ROM file and extract parts
-                                extractedParts = ReadROM(romFilename, ref bROMRead);
+                                extractedParts = ReadSRAMImage(romFilename, ref bROMRead);
                                 // update status for part number
                                 break;
                             case "Clear Mass Memory":
@@ -343,7 +343,7 @@ namespace DLPBits
             }
         }
 
-        private static List<byte[]> ReadROM(string pathToFile, ref bool bROMRead)
+        private static List<byte[]> ReadSRAMImage(string pathToFile, ref bool bROMRead)
         {
             byte[] fileBytes = null;
 
