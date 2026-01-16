@@ -21,16 +21,16 @@ namespace DLPBits
         // TODO: Minimize repeated errors and warnings
 
         // Named constants to replace magic numbers
-        private const int DEFAULT_GPIB_ADDRESS = 18;
-        private const int GPIB_TIMEOUT_MILLISECONDS = 2000;
-        private const int USER_MESSAGE_DELAY_MILLISECONDS = 1000;
-        private const int ERROR_MESSAGE_DELAY_MILLISECONDS = 2000;
-        private const int GPIB_ADDRESS_MIN = 1;
-        private const int GPIB_ADDRESS_MAX = 30;
-        private const byte DLP_START_BYTE_1 = 0x10;
-        private const byte DLP_START_BYTE_2 = 0x80;
-        private const byte DLP_END_BYTE_1 = 0x3b;
-        private const byte DLP_END_BYTE_2 = 0xff;
+        private const int DefaultGpibAddress = 18;
+        private const int GpibTimeoutMilliseconds = 2000;
+        private const int UserMessageDelayMilliseconds = 1000;
+        private const int ErrorMessageDelayMilliseconds = 2000;
+        private const int GpibAddressMin = 1;
+        private const int GpibAddressMax = 30;
+        private const byte DlpStartByte1 = 0x10;
+        private const byte DlpStartByte2 = 0x80;
+        private const byte DlpEndByte1 = 0x3b;
+        private const byte DlpEndByte2 = 0xff;
 
         // This function translates the address based on the specific algorithm provided.
         // Code provided by https://github.com/KIrill-ka (EEVBlog user https://www.eevblog.com/forum/profile/?u=127220)
@@ -55,7 +55,7 @@ namespace DLPBits
         // This is the main entry point for the application.
         static void Main(string[] args)
         {
-            int gpibIntAddress = DEFAULT_GPIB_ADDRESS; // This is the default address for the SA
+            int gpibIntAddress = DefaultGpibAddress; // This is the default address for the SA
             SemaphoreSlim srqWait = new SemaphoreSlim(0, 1);
             bool bROMRead = false;
             List<byte[]> extractedParts = null;
@@ -108,7 +108,7 @@ namespace DLPBits
                     {
                         AnsiConsole.MarkupLine($"[red]Unexpected error in operation: {ex.Message}[/]");
                         Debug.WriteLine($"Unexpected error in Main loop: {ex}");
-                        Thread.Sleep(ERROR_MESSAGE_DELAY_MILLISECONDS);
+                        Thread.Sleep(ErrorMessageDelayMilliseconds);
                     }
 
                     // Clear the screen & Display title
@@ -127,7 +127,7 @@ namespace DLPBits
             {
                 AnsiConsole.MarkupLine($"[red]Critical error in application: {ex.Message}[/]");
                 Debug.WriteLine($"Critical error in Main: {ex}");
-                Thread.Sleep(ERROR_MESSAGE_DELAY_MILLISECONDS);
+                Thread.Sleep(ErrorMessageDelayMilliseconds);
             }
             finally
             {
@@ -187,7 +187,7 @@ namespace DLPBits
 
                 // Create a GPIB session for the specified address
                 gpibSession = (GpibSession)resManager.Open(string.Format("GPIB0::{0}::INSTR", gpibIntAddress));
-                gpibSession.TimeoutMilliseconds = GPIB_TIMEOUT_MILLISECONDS; // Set the timeout to be 2s
+                gpibSession.TimeoutMilliseconds = GpibTimeoutMilliseconds; // Set the timeout to be 2s
                 gpibSession.TerminationCharacterEnabled = true;
                 gpibSession.Clear(); // Clear the session
 
@@ -200,7 +200,7 @@ namespace DLPBits
                 if (string.IsNullOrWhiteSpace(idn))
                 {
                     AnsiConsole.MarkupLine("[Red]Device failed to connect. Check GPIB address and device state.[/]");
-                    Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS); // Pause for a moment to let the user see the message
+                    Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
                     resManager = null;
                     gpibSession = null;
                     return false;
@@ -209,14 +209,14 @@ namespace DLPBits
                 {
                     // Successfully connected
                     AnsiConsole.MarkupLine("[green]Device connected: [/]" + idn);
-                    Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS); // Pause for a moment to let the user see the message
+                    Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
                     return true;
                 }
             }
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLine($"[Red]Device failed to connect. GPIB Error: {ex.Message}[/]");
-                Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS); // Pause for a moment to let the user see the message
+                Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
                 resManager = null;
                 gpibSession = null;
                 return false;
@@ -232,7 +232,7 @@ namespace DLPBits
                 {
                     AnsiConsole.MarkupLine($"[Red]No parts available to create DLPs. Please read the ROM first.[/]");
                     Debug.WriteLine("CreateDLPs: No parts available");
-                    Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS);
+                    Thread.Sleep(UserMessageDelayMilliseconds);
                     return;
                 }
 
@@ -240,7 +240,7 @@ namespace DLPBits
                 {
                     AnsiConsole.MarkupLine("[red]Error: Device not connected. Check GPIB address and device state.[/]");
                     Debug.WriteLine("CreateDLPs: Failed to connect to device");
-                    Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS); // Pause for a moment to let the user see the message
+                    Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
                     return;
                 }
 
@@ -303,7 +303,7 @@ namespace DLPBits
             {
                 AnsiConsole.MarkupLine($"[red]Error in CreateDLPs: {ex.Message}[/]");
                 Debug.WriteLine($"Error in CreateDLPs: {ex}");
-                Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS);
+                Thread.Sleep(UserMessageDelayMilliseconds);
             }
         }
 
@@ -316,7 +316,7 @@ namespace DLPBits
                 {
                     AnsiConsole.MarkupLine("[yellow]Mass memory clear cancelled.[/]");
                     Debug.WriteLine("ClearMassMemory: Operation cancelled by user");
-                    Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS);
+                    Thread.Sleep(UserMessageDelayMilliseconds);
                     return;
                 }
 
@@ -327,19 +327,19 @@ namespace DLPBits
                     SendCommand("DISPOSE ALL", gpibSession);
                     AnsiConsole.MarkupLine("[green]Mass memory cleared.[/]");
                     Debug.WriteLine("ClearMassMemory: Mass memory successfully cleared");
-                    Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS);
+                    Thread.Sleep(UserMessageDelayMilliseconds);
                     return;
                 }
 
                 AnsiConsole.MarkupLine("[Red]Error: Device not connected. Check GPIB address and device state.[/]");
                 Debug.WriteLine("ClearMassMemory: Device not connected");
-                Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS); // Pause for a moment to let the user see the message
+                Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
             }
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLine($"[red]Error clearing mass memory: {ex.Message}[/]");
                 Debug.WriteLine($"Error in ClearMassMemory: {ex}");
-                Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS);
+                Thread.Sleep(UserMessageDelayMilliseconds);
             }
         }
 
@@ -383,8 +383,8 @@ namespace DLPBits
                 }
 
                 // Define the start and end byte sequences
-                byte[] startSequence = new byte[] { DLP_START_BYTE_1, DLP_START_BYTE_2 }; // 0x10, 0x80 seem to be the start bytes for a DLP
-                byte[] endSequence = new byte[] { DLP_END_BYTE_1, DLP_END_BYTE_2 };   // 0x3b, 0xff seem to be the end bytes for a DLP
+                byte[] startSequence = new byte[] { DlpStartByte1, DlpStartByte2 }; // 0x10, 0x80 seem to be the start bytes for a DLP
+                byte[] endSequence = new byte[] { DlpEndByte1, DlpEndByte2 };   // 0x3b, 0xff seem to be the end bytes for a DLP
 
                 List<byte[]> extractedParts = ExtractPartsBetweenSequences(translatedBytes.ToArray(), startSequence, endSequence);
 
@@ -393,7 +393,7 @@ namespace DLPBits
                 bROMRead = true;
 
                 AnsiConsole.MarkupLine("[green]ROM image read.[/]");
-                Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS); // Pause for a moment to let the user see the message
+                Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
 
                 return extractedParts;
             }
@@ -404,7 +404,7 @@ namespace DLPBits
             }
 
             AnsiConsole.MarkupLine("[red]ROM image failed to read.[/]");
-            Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS); // Pause for a moment to let the user see the message
+            Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
 
             bROMRead = false;
             return null;
@@ -417,13 +417,19 @@ namespace DLPBits
                 // Prompt for the SA GPIB Address
                 gpibIntAddress = AnsiConsole.Prompt(
                     new TextPrompt<int>("Enter spectrum analyzer GPIB address (Default is 18)?")
-                    .DefaultValue(DEFAULT_GPIB_ADDRESS)
-                    .Validate(n => n >= GPIB_ADDRESS_MIN && n <= GPIB_ADDRESS_MAX ? ValidationResult.Success() : ValidationResult.Error($"Address must be between {GPIB_ADDRESS_MIN} and {GPIB_ADDRESS_MAX}"))
+                    .DefaultValue(DefaultGpibAddress)
+                    .Validate(n =>
+                    {
+                        bool isValidAddress = n >= GpibAddressMin && n <= GpibAddressMax;
+                        return isValidAddress
+                            ? ValidationResult.Success()
+                            : ValidationResult.Error($"Address must be between {GpibAddressMin} and {GpibAddressMax}");
+                    })
                     );
 
                 AnsiConsole.MarkupLine("[green]GPIB Address updated.[/]");
                 Debug.WriteLine($"SetGPIBAddress: GPIB address set to {gpibIntAddress}");
-                Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS); // Pause for a moment to let the user see the message
+                Thread.Sleep(UserMessageDelayMilliseconds); // Pause for a moment to let the user see the message
 
                 return gpibIntAddress;
             }
@@ -431,7 +437,7 @@ namespace DLPBits
             {
                 AnsiConsole.MarkupLine($"[red]Error setting GPIB address: {ex.Message}[/]");
                 Debug.WriteLine($"Error in SetGPIBAddress: {ex}");
-                Thread.Sleep(USER_MESSAGE_DELAY_MILLISECONDS);
+                Thread.Sleep(UserMessageDelayMilliseconds);
                 return gpibIntAddress; // Return the original address if error occurs
             }
         }
