@@ -113,14 +113,34 @@ namespace DLPBits
 
         private static bool ConnectToDevice(int gpibIntAddress, ref SemaphoreSlim srqWait, ref ResourceManager resManager, ref GpibSession gpibSession)
         {
-            if (resManager != null || gpibSession != null)
+            if (resManager != null && gpibSession != null)
             {
-                AnsiConsole.MarkupLine("[yellow]Warning: Already connected to a device. Disconnecting and reconnecting.[/]");
-                gpibSession?.Dispose();
+                AnsiConsole.MarkupLine("[yellow]Warning: Already connected. Disconnecting...[/]");
+                try
+                {
+                    gpibSession?.Dispose();
+                    resManager?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error disposing resources during reconnect: {ex}");
+                    AnsiConsole.MarkupLine("[yellow]Warning: Error during disconnect, forcing cleanup...[/]");
+                }
+                finally
+                {
+                    resManager = null;
+                    gpibSession = null;
+                }
+                Thread.Sleep(500);
+            }
+            else if (resManager != null || gpibSession != null)
+            {
+                // Handle inconsistent state
+                Debug.WriteLine("Warning: Inconsistent resource state detected");
                 resManager?.Dispose();
+                gpibSession?.Dispose();
                 resManager = null;
                 gpibSession = null;
-                Thread.Sleep(1000); // Pause for a moment to let the user see the message
             }
 
             try
