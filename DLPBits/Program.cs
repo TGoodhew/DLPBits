@@ -602,19 +602,12 @@ namespace DLPBits
                     return -1;
                 }
 
-                for (int i = startIndex; i <= data.Length - sequence.Length; i++)
-                {
-                    bool match = true;
-                    for (int j = 0; j < sequence.Length; j++)
-                    {
-                        if (data[i + j] != sequence[j])
-                        {
-                            match = false;
-                            break;
-                        }
-                    }
-                    if (match) return i;
-                }
+                // Use Span for better performance - uses vectorized operations (SIMD when available)
+                ReadOnlySpan<byte> dataSpan = data.AsSpan(startIndex);
+                ReadOnlySpan<byte> sequenceSpan = sequence.AsSpan();
+                
+                int index = dataSpan.IndexOf(sequenceSpan);
+                return index >= 0 ? startIndex + index : -1;
             }
             catch (Exception ex)
             {
