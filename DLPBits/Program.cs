@@ -651,6 +651,7 @@ namespace DLPBits
                 return string.Empty;
             }
         }
+
         /// <summary>
         /// Sends a query command to the device and reads the response.
         /// Combines SendCommand and ReadResponse into a single operation.
