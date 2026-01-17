@@ -26,8 +26,13 @@ namespace DLPBits
         private const byte DlpEndByte1 = 0x3b;
         private const byte DlpEndByte2 = 0xff;
 
-        // This function translates the address based on the specific algorithm provided.
-        // Code provided by https://github.com/KIrill-ka (EEVBlog user https://www.eevblog.com/forum/profile/?u=127220)
+        /// <summary>
+        /// Translates memory addresses using a bit manipulation algorithm for the HP 85620A mass memory module.
+        /// This algorithm remaps addresses according to the specific hardware layout requirements.
+        /// Code provided by https://github.com/KIrill-ka (EEVBlog user https://www.eevblog.com/forum/profile/?u=127220)
+        /// </summary>
+        /// <param name="a">The original address to translate.</param>
+        /// <returns>The translated address after bit manipulation.</returns>
         static int AddrXlat(int a) =>
             ((a << 10) & 1024) |
             ((a << 10) & 2048) |
@@ -46,7 +51,12 @@ namespace DLPBits
             ((a >> 14) & 1) |
             (a & 0x18000);
 
-        // This is the main entry point for the application.
+        /// <summary>
+        /// Main entry point for the DLPBits application.
+        /// Provides an interactive menu for managing HP 85671A and 85672A spectrum analyzer DLP programs
+        /// via GPIB communication.
+        /// </summary>
+        /// <param name="args">Command line arguments (currently not used).</param>
         static void Main(string[] args)
         {
             int gpibIntAddress = DefaultGpibAddress; // This is the default address for the SA
@@ -130,6 +140,14 @@ namespace DLPBits
             }
         }
 
+        /// <summary>
+        /// Establishes a GPIB connection to the spectrum analyzer at the specified address.
+        /// Handles disconnection of existing sessions before creating new connections.
+        /// </summary>
+        /// <param name="gpibIntAddress">The GPIB address of the device to connect to.</param>
+        /// <param name="resManager">Reference to the VISA resource manager instance.</param>
+        /// <param name="gpibSession">Reference to the GPIB session instance.</param>
+        /// <returns>True if the connection was successful and device responded to ID query; otherwise false.</returns>
         private static bool ConnectToDevice(int gpibIntAddress, ref ResourceManager resManager, ref GpibSession gpibSession)
         {
             if (resManager != null && gpibSession != null)
@@ -215,6 +233,14 @@ namespace DLPBits
             }
         }
 
+        /// <summary>
+        /// Uploads DLP (Device Level Program) definitions to the spectrum analyzer via GPIB.
+        /// Each extracted part is sent as a FUNCDEF command and validated for errors.
+        /// </summary>
+        /// <param name="extractedParts">List of byte arrays containing DLP program data extracted from SRAM image.</param>
+        /// <param name="gpibIntAddress">Reference to the GPIB address for device connection.</param>
+        /// <param name="gpibSession">Reference to the active GPIB session.</param>
+        /// <param name="resManager">Reference to the VISA resource manager.</param>
         private static void CreateDLPs(List<byte[]> extractedParts, ref int gpibIntAddress, ref GpibSession gpibSession, ref ResourceManager resManager)
         {
             try
@@ -296,6 +322,13 @@ namespace DLPBits
             }
         }
 
+        /// <summary>
+        /// Clears the mass memory on the spectrum analyzer by sending the DISPOSE ALL command.
+        /// Requires user confirmation before executing this irreversible operation.
+        /// </summary>
+        /// <param name="gpibIntAddress">The GPIB address of the device.</param>
+        /// <param name="resManager">Reference to the VISA resource manager.</param>
+        /// <param name="gpibSession">Reference to the GPIB session.</param>
         private static void ClearMassMemory(int gpibIntAddress, ref ResourceManager resManager, ref GpibSession gpibSession)
         {
             try
@@ -327,6 +360,13 @@ namespace DLPBits
             }
         }
 
+        /// <summary>
+        /// Reads and processes an SRAM image file from an HP 85620A mass memory module.
+        /// Applies address translation and bit manipulation, then extracts DLP programs between marker sequences.
+        /// </summary>
+        /// <param name="pathToFile">File path to the SRAM image binary file.</param>
+        /// <param name="bROMRead">Reference to a boolean flag indicating successful read operation.</param>
+        /// <returns>A list of byte arrays containing extracted DLP programs, or null if reading fails.</returns>
         private static List<byte[]> ReadSRAMImage(string pathToFile, ref bool bROMRead)
         {
             byte[] fileBytes = null;
@@ -394,6 +434,12 @@ namespace DLPBits
             return null;
         }
 
+        /// <summary>
+        /// Prompts the user to enter a new GPIB address for the spectrum analyzer.
+        /// Validates the address is within the acceptable range (1-30).
+        /// </summary>
+        /// <param name="gpibIntAddress">The current GPIB address to use as default.</param>
+        /// <returns>The new GPIB address, or the original address if an error occurs.</returns>
         private static int SetGPIBAddress(int gpibIntAddress)
         {
             try
@@ -426,7 +472,14 @@ namespace DLPBits
             }
         }
 
-        // Extracts all byte segments between startSequence and endSequence (exclusive)
+        /// <summary>
+        /// Extracts all byte segments between specified start and end marker sequences.
+        /// The markers themselves are excluded from the extracted segments.
+        /// </summary>
+        /// <param name="data">The byte array to search through.</param>
+        /// <param name="startSequence">The byte sequence marking the beginning of a segment.</param>
+        /// <param name="endSequence">The byte sequence marking the end of a segment.</param>
+        /// <returns>A list of byte arrays containing the extracted segments.</returns>
         static List<byte[]> ExtractPartsBetweenSequences(byte[] data, byte[] startSequence, byte[] endSequence)
         {
             var parts = new List<byte[]>();
@@ -477,7 +530,13 @@ namespace DLPBits
             return parts;
         }
 
-        // Finds the index of the first occurrence of the sequence in data starting from startIndex
+        /// <summary>
+        /// Finds the index of the first occurrence of a byte sequence within a byte array.
+        /// </summary>
+        /// <param name="data">The byte array to search through.</param>
+        /// <param name="sequence">The byte sequence to find.</param>
+        /// <param name="startIndex">The index to start searching from.</param>
+        /// <returns>The index of the first occurrence, or -1 if not found.</returns>
         static int FindSequence(byte[] data, byte[] sequence, int startIndex)
         {
             try
@@ -522,6 +581,13 @@ namespace DLPBits
             return -1;
         }
 
+        /// <summary>
+        /// Displays the application title banner and current status information including
+        /// GPIB address, ROM read status, and number of extracted DLP parts.
+        /// </summary>
+        /// <param name="gpibIntAddress">The current GPIB address setting.</param>
+        /// <param name="bROMRead">Boolean indicating whether ROM has been successfully read.</param>
+        /// <param name="extractedParts">List of extracted DLP parts to count.</param>
         private static void DisplayTitle(int gpibIntAddress, bool bROMRead, List<byte[]> extractedParts)
         {
             try
@@ -549,6 +615,11 @@ namespace DLPBits
             }
         }
 
+        /// <summary>
+        /// Sends a command string to the device via the GPIB session.
+        /// </summary>
+        /// <param name="command">The command string to send.</param>
+        /// <param name="gpibSession">The active GPIB session.</param>
         static private void SendCommand(string command, GpibSession gpibSession)
         {
             try
@@ -562,6 +633,11 @@ namespace DLPBits
             }
         }
 
+        /// <summary>
+        /// Reads a response line from the device via the GPIB session.
+        /// </summary>
+        /// <param name="gpibSession">The active GPIB session.</param>
+        /// <returns>The response string from the device, or an empty string if an error occurs.</returns>
         static private string ReadResponse(GpibSession gpibSession)
         {
             try
@@ -575,6 +651,13 @@ namespace DLPBits
                 return string.Empty;
             }
         }
+        /// <summary>
+        /// Sends a query command to the device and reads the response.
+        /// Combines SendCommand and ReadResponse into a single operation.
+        /// </summary>
+        /// <param name="command">The query command to send.</param>
+        /// <param name="gpibSession">The active GPIB session.</param>
+        /// <returns>The response string from the device.</returns>
         static private string QueryString(string command, GpibSession gpibSession)
         {
             SendCommand(command, gpibSession);
@@ -586,6 +669,13 @@ namespace DLPBits
             return response;
         }
 
+        /// <summary>
+        /// Handles Service Request (SRQ) events from the GPIB device.
+        /// Reads the status byte and clears the event queue to acknowledge the request.
+        /// </summary>
+        /// <param name="sender">The object that raised the event.</param>
+        /// <param name="e">Event arguments containing VISA event information.</param>
+        /// <param name="gpibSession">The GPIB session associated with the device.</param>
         public static void SRQHandler(object sender, Ivi.Visa.VisaEventArgs e, GpibSession gpibSession)
         {
             try
