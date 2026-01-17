@@ -365,7 +365,7 @@ namespace DLPBits
         /// Applies address translation and bit manipulation, then extracts DLP programs between marker sequences.
         /// </summary>
         /// <param name="pathToFile">File path to the SRAM image binary file.</param>
-        /// <param name="bROMRead">Reference to a boolean flag indicating successful read operation.</param>
+        /// <param name="bROMRead">Reference to a boolean flag that is set by this method to true if the read succeeds; otherwise, false.</param>
         /// <returns>A list of byte arrays containing extracted DLP programs, or null if reading fails.</returns>
         private static List<byte[]> ReadSRAMImage(string pathToFile, ref bool bROMRead)
         {
@@ -583,10 +583,10 @@ namespace DLPBits
 
         /// <summary>
         /// Displays the application title banner and current status information including
-        /// GPIB address, ROM read status, and number of extracted DLP parts.
+        /// GPIB address, SRAM read status, and number of extracted DLP parts.
         /// </summary>
         /// <param name="gpibIntAddress">The current GPIB address setting.</param>
-        /// <param name="bROMRead">Boolean indicating whether ROM has been successfully read.</param>
+        /// <param name="bROMRead">Boolean indicating whether SRAM has been successfully read.</param>
         /// <param name="extractedParts">List of extracted DLP parts to count.</param>
         private static void DisplayTitle(int gpibIntAddress, bool bROMRead, List<byte[]> extractedParts)
         {
