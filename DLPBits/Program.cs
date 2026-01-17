@@ -492,6 +492,11 @@ namespace DLPBits
 
                 return extractedParts;
             }
+            catch (OperationCanceledException)
+            {
+                // Re-throw cancellation exceptions to be handled by the main loop
+                throw;
+            }
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLine($"[red]Error reading file: {ex.Message}[/]");
